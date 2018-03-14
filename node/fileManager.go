@@ -1,10 +1,8 @@
 package node
 
-import (
-	"fmt"
-)
+import ()
 
-const Path = "../Data"
+var Path = "../Data"
 
 type Chunk struct {
 	Index  int
@@ -19,7 +17,8 @@ type FileInfo struct {
 }
 
 func getChunk(index int, length int, fname string) (Chunk, error) {
-	return &Chunk, nil
+	var chunk Chunk
+	return chunk, nil
 }
 
 func combineChunk(Chunks []Chunk) error {
@@ -27,5 +26,10 @@ func combineChunk(Chunks []Chunk) error {
 }
 
 func serachFile(fname string) (FileInfo, error) {
-	return &FileInfo, nil
+	var fileInfo FileInfo
+	return fileInfo, nil
+}
+
+func changeDir(path string) error {
+	return nil
 }
