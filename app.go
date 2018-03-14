@@ -22,9 +22,9 @@ func main() {
 
 	/**
 	/ Client interface:
-	/ client.serach(filename string)
-	/ client.changeDirectory(path string)
-	/ client.getFile(filename string)
-	/ client.disconnect()
+	/ client.Serach(filename string) []FileInfo
+	/ client.ChangeDirectory(path string) error
+	/ client.GetFile(filename string) error
+	/ client.Disconnect() error
 	**/
 }

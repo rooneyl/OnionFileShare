@@ -10,9 +10,18 @@ func encryptData(data []byte, publicKey string) ([]byte, error) {
 	return encryptedData, nil
 }
 
-func decryptData(data []byte, PrivateKey string) ([]byte, error) {
+func decryptData(data []byte, privateKey string) ([]byte, error) {
 	var decryptedData []byte
 	return decryptedData, nil
+}
+
+func encryptStruct(stru interface{}, publicKey string) ([]byte, error) {
+	var encryptedStruct []byte
+	return encryptedStruct, nil
+}
+
+func decryptStruct(data []byte, privateKey string, stru *interface{}) error {
+	return nil
 }
 
 func generateKeys() (string, string) {
