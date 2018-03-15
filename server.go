@@ -16,23 +16,18 @@ import (
 	"os"
 	//"sort"
 	//"sync"
-	//"time"
-)
-
-type (
-	IP     string
-	PubKey string
+	"time"
 )
 
 var (
 	logger *log.Logger
-	//replace first string with pubkey and second string with ip
-	nodeList map[PubKey]IP
+	//first string is pubkey, second string is ip address
+	nodeList map[string]string
 )
 
 type SneakyNode struct {
-	ip     IP
-	pubKey PubKey
+	ip     string
+	pubKey string
 }
 
 func main() {
@@ -43,7 +38,7 @@ func main() {
 		return
 	}
 
-	nodeList = make(map[PubKey]IP)
+	nodeList = make(map[string]string)
 
 	sneakyNode := new(SneakyNode)
 	rpc.Register(sneakyNode)
@@ -55,6 +50,50 @@ func main() {
 	rpc.Accept(ln)
 
 	return
+}
+
+func (s *SneakyNode) Hello(sn *SneakyNode, reply *string) error {
+	register(sn)
+
+	// run goroutine in infinite loop
+	go HeartBeat(sn)
+
+	*reply = "registered"
+	return nil
+}
+
+func register(sn *SneakyNode) {
+	if nodeExists(sn.pubKey) {
+		return
+	} else {
+		nodeList[sn.pubKey] = sn.ip
+		return
+	}
+}
+
+func nodeExists(pubkey string) bool {
+	for k, _ := range nodeList {
+		if k == pubkey {
+			return true
+		}
+	}
+	return false
+}
+
+func HeartBeat(s *SneakyNode) {
+	for {
+		_, err := rpc.Dial("tcp", s.ip)
+		if err != nil {
+			for k, _ := range nodeList {
+				if k == s.pubKey {
+					delete(nodeList, k)
+				}
+			}
+
+		}
+
+		time.Sleep(8 * time.Second)
+	}
 }
 
 func checkError(err error) {
