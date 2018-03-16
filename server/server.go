@@ -62,7 +62,7 @@ func (s *SneakyNode) Hello(sn *SneakyNode, reply *string) error {
 	return nil
 }
 
-func (s *SneakyNode) getRoute(sn *SneakyNode, reply *[]string) error {
+func (s *SneakyNode) GetRoute(sn *SneakyNode, reply *[]string) error {
 	var route []string
 	i := 0
 	for _, v := range nodeList {
