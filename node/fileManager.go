@@ -49,9 +49,9 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	return chunk, err
 }
 
-func combineChunks(Chunks []Chunk) (fname string, combined []byte, err error) {
+func combineChunks(Chunks []Chunk) (fname string, combined []byte, b bool) {
 	if len(Chunks) == 0 {
-		return "", nil, err
+		return "", nil, false
 	}
 	if len(Chunks) > 1 {
 		sort.Slice(Chunks, func(i, j int) bool {
@@ -62,11 +62,11 @@ func combineChunks(Chunks []Chunk) (fname string, combined []byte, err error) {
 	fname = Chunks[0].Fname
 	for i, chunk := range Chunks {
 		if chunk.Fname != fname || chunk.Index != i || Chunks[0].Length != len(Chunks) {
-			return "", nil, err
+			return "", nil, false
 		}
 		combined = append(combined, chunk.Data...)
 	}
-	return fname, combined, nil
+	return fname, combined, true
 }
 
 func createFile(fname string, data []byte) error {
