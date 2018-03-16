@@ -20,7 +20,7 @@ func encryptStruct(stru interface{}, publicKey string) ([]byte, error) {
 	return encryptedStruct, nil
 }
 
-func decryptStruct(data []byte, privateKey string, stru *interface{}) error {
+func decryptStruct(data []byte, privateKey string, stru interface{}) error {
 	return nil
 }
 

@@ -2,12 +2,13 @@ package node
 
 import (
 	"log"
+	"time"
 )
 
 var Log *log.Logger
 
 const (
-	MinNumRoute   int = 3
-	HeartBeatRate int = 600
-	FileChunkSize int = 1000
+	MinNumRoute   int           = 3
+	HeartBeatRate time.Duration = 600
+	FileChunkSize int           = 1000
 )
