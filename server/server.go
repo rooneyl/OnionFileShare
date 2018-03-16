@@ -10,7 +10,7 @@ import (
 	//"fmt"
 	//"io/ioutil"
 	"log"
-	//"math/rand"
+	"math/rand"
 	"net"
 	"net/rpc"
 	"os"
@@ -38,6 +38,8 @@ func main() {
 		return
 	}
 
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	nodeList = make(map[string]string)
 
 	sneakyNode := new(SneakyNode)
@@ -63,13 +65,28 @@ func (s *SneakyNode) Hello(sn *SneakyNode, reply *string) error {
 }
 
 func (s *SneakyNode) GetRoute(sn *SneakyNode, reply *[]string) error {
-	var route []string
+	var nodes []string
 	i := 0
 	for _, v := range nodeList {
-		route[i] = v
+		nodes[i] = v
+		i++
 	}
-	//TODO: return random list of 3 nodes
+	var route []string
+	for i := 0; i < 3; i++ {
+		route[i] = nodes[rand.Intn(len(nodes))]
+	}
 	*reply = route
+	return nil
+}
+
+func (s *SneakyNode) GetNodes(sn *string, reply *[]string) error {
+	var nodes []string
+	i := 0
+	for _, v := range nodeList {
+		nodes[i] = v
+		i++
+	}
+	*reply = nodes
 	return nil
 }
 
@@ -125,6 +142,5 @@ func checkError(err error) {
 func getAddr(ip string) *net.TCPAddr {
 	addr, err := net.ResolveTCPAddr("tcp", ip)
 	checkError(err)
-	log.Println("Listening on", addr)
 	return addr
 }
