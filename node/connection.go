@@ -48,7 +48,7 @@ func StartConnection(localAddr string, serverAddr string) *Node {
 }
 
 func sendHB(rpcConn *rpc.Client, nodeInfo NodeInfo) {
-	Log.Printf("Sending HeartBeat.. [Rate : %d]\n",HeartBeatRate)
+	Log.Printf("Sending HeartBeat.. [Rate : %d]\n", HeartBeatRate)
 	reply := false
 	for {
 		rpcConn.Call("Server.HeartBeat", nodeInfo, &reply)
@@ -57,9 +57,9 @@ func sendHB(rpcConn *rpc.Client, nodeInfo NodeInfo) {
 }
 
 const (
-	ROUTE string = "ROUTE" 
+	ROUTE   string = "ROUTE"
 	GETFILE string = "GETFILE"
-	END string = "END"
+	END     string = "END"
 )
 
 type Operation struct {
@@ -74,32 +74,81 @@ type Route struct {
 
 type Data struct {
 	PublicKey string
-	FInfo FileInfo
-	Data []byte
+	FInfo     FileInfo
+	Index     int
+	Length    int
+	Data      []byte
 }
 
 type Message struct {
-	Op   Operation
-	Dst  Route
+	Op   []byte
+	Dst  []byte
 	Data []byte
 }
 
-func (n *Node) Incoming(arg []byte, reply *bool) error {
+func (n *Node) Incoming(arg Message, reply *bool) error {
 	Log.Println("RPC - Received RPC Message...")
-	var msg Message
-	err := decryptStruct(arg,n.privateKey,&msg)
-	if err != nil {
-		Log.Println(err)
+
+	var route Route
+	var operation Operation
+
+	errRoute := decryptStruct(arg.Dst, n.privateKey, &route)
+	errOp := decryptStruct(arg.Op, n.privateKey, &operation)
+
+	if errOp != nil || errRoute != nil {
+		Log.Println("RPC - Decrypting Message Failed")
+		return nil
 	}
 
-	Log.Printf("RPC - Message Decrypted [OP : %s]\n",msg.Op.Op)
-	switch msg.Op.Op (
-	case ROUTE :
+	Log.Printf("RPC - Message Decrypted [OP : %s] [DST : %s]\n", operation.Op, route.Dst)
+	if operation.Op != ROUTE && operation.Op != END && operation.Op != GETFILE {
+		Log.Println("RPC - Invalid OP")
+		return nil
+	}
+
+	switch operation.Op {
 
 	case GETFILE:
+		var data Data
+		errData := decryptStruct(arg.Data, n.privateKey, &data)
+		if errData != nil {
+			Log.Println("RPC - Decrypting Data Failed")
+			return nil
+		}
 
-	case END :
+		chunk, err := getChunk(data.Index, data.Length, data.FInfo.Fname)
+		if err != nil {
+			Log.Println("RPC - GetFile: Unable to Get Chunk")
+			return nil
+		}
 
-	)
+		data.Data = chunk
+		encData, err := encryptStruct(data, data.PublicKey)
+		if err != nil {
+			Log.Println("RPC - Encrypting Data Failed")
+			return nil
+		}
+
+		arg.Data = encData
+
+	case END:
+
+	}
+
+	msg := Message{operation.Next, route.Next, arg.Data}
+	rpcConn, err := rpc.Dial("tcp", route.Dst)
+	defer rpcConn.Close()
+	if err != nil {
+		Log.Println("RPC - Dial Failed")
+		return nil
+	}
+
+	reply := false
+	err = rpcConn.Call("Node.Incoming", msg, &reply)
+	if err != nil {
+		Log.Println("RPC - Sending Message to Next Route Failed")
+		return nil
+	}
+
 	return nil
 }
