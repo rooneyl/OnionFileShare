@@ -109,7 +109,7 @@ func HeartBeat(sn *SneakyNode) {
 					delete(nodeList, k)
 				}
 			}
-
+			return
 		}
 
 		time.Sleep(8 * time.Second)
