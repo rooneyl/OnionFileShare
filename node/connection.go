@@ -75,9 +75,7 @@ type Route struct {
 type Data struct {
 	PublicKey string
 	FInfo     FileInfo
-	Index     int
-	Length    int
-	Data      []byte
+	Data      Chunk
 }
 
 type Message struct {
@@ -116,7 +114,7 @@ func (n *Node) Incoming(arg Message, reply *bool) error {
 			return nil
 		}
 
-		chunk, err := getChunk(data.Index, data.Length, data.FInfo.Fname)
+		chunk, err := getChunk(data.Data.Index, data.Data.Length, data.FInfo.Fname)
 		if err != nil {
 			Log.Println("RPC - GetFile: Unable to Get Chunk")
 			return nil
@@ -143,7 +141,6 @@ func (n *Node) Incoming(arg Message, reply *bool) error {
 		return nil
 	}
 
-	reply := false
 	err = rpcConn.Call("Node.Incoming", msg, &reply)
 	if err != nil {
 		Log.Println("RPC - Sending Message to Next Route Failed")
