@@ -73,6 +73,15 @@ func (s *SneakyNode) getRoute(sn *SneakyNode, reply *[]string) error {
 	return nil
 }
 
+func (s *SneakyNode) Search(filename string, reply *SneakyNode) error {
+	for _, v := range nodeList {
+		c, err := rpc.Dial("tcp", v)
+		checkError(err)
+		err = c.Call("SneakyNode.Exists", filename, &reply)
+	}
+	return nil
+}
+
 func register(sn *SneakyNode) {
 	if nodeExists(sn.pubKey) {
 		return
