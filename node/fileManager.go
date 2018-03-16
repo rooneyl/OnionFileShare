@@ -1,16 +1,19 @@
 package node
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 )
 
 var Path = "../Data"
 
 type Chunk struct {
+	Fname  string
 	Index  int
 	Length int
 	Data   []byte
@@ -24,11 +27,21 @@ type FileInfo struct {
 
 func getChunk(index int, length int, fname string) (Chunk, error) {
 	var chunk Chunk
-	file, err := os.Open(fname)
-	data := make([]byte, length)
-	_, err = file.ReadAt(data, int64(index))
+	f, err := os.Open(filepath.Join(Path, fname))
+	if err != nil {
+		return chunk, err
+	}
+	defer f.Close()
 
+	fi, err := f.Stat()
+	if err != nil {
+		return chunk, err
+	}
+	size := fi.Size() / int64(length)
+	data := make([]byte, size)
+	_, err = f.ReadAt(data, int64(index))
 	if err == nil {
+		chunk.Fname = fname
 		chunk.Index = index
 		chunk.Length = length
 		chunk.Data = data
@@ -36,33 +49,56 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	return chunk, err
 }
 
-func combineChunk(Chunks []Chunk) (combined []byte, err error) {
-	sort.Slice(Chunks, func(i, j int) bool {
-		return Chunks[i].Index < Chunks[j].Index
-	})
-	for _, chunk := range Chunks {
+func combineChunks(Chunks []Chunk) (fname string, combined []byte, err error) {
+	if len(Chunks) == 0 {
+		return "", nil, err
+	}
+	if len(Chunks) > 1 {
+		sort.Slice(Chunks, func(i, j int) bool {
+			return Chunks[i].Index < Chunks[j].Index
+		})
+	}
+
+	fname = Chunks[0].Fname
+	for i, chunk := range Chunks {
+		if chunk.Fname != fname || chunk.Index != i || Chunks[0].Length != len(Chunks) {
+			return "", nil, err
+		}
 		combined = append(combined, chunk.Data...)
 	}
-	//TODO not sure what to return
-	return combined, nil
+	return fname, combined, nil
+}
+
+func createFile(fname string, data []byte) error {
+	name := filepath.Join(Path, fname)
+	err := ioutil.WriteFile(name, data, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func searchFile(fname string) (FileInfo, error) {
 	var fileInfo FileInfo
-	content, err := ioutil.ReadFile(fname)
+	f, err := os.Open(filepath.Join(Path, fname))
+	if err != nil {
+		return fileInfo, err
+	}
+	defer f.Close()
+	h := md5.New()
+	n, err := io.Copy(h, f)
 	if err == nil {
 		fileInfo.Fname = fname
-		fileInfo.Size = len(content)
-		fileInfo.Hash = string(content[:])
+		fileInfo.Size = int(n)
+		fileInfo.Hash = hex.EncodeToString(h.Sum(nil))
 	}
 	return fileInfo, err
 }
 
 func changeDir(path string) error {
-	//TODO not sure
-	_, b, _, _ := runtime.Caller(0)
-	basepath := filepath.Dir(b)
-	dir := filepath.Join(basepath, path)
-	err := os.Chdir(dir)
-	return err
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return err
+	}
+	Path = path
+	return nil
 }
