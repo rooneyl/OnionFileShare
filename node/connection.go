@@ -6,12 +6,6 @@ import (
 	"time"
 )
 
-const (
-	ROUTE = "itoa"
-	GETFILE
-	END
-)
-
 type NodeInfo struct {
 	addr      string
 	publicKey string
@@ -24,23 +18,9 @@ type Node struct {
 	privateKey string
 }
 
-type Operation struct {
-	Op   string
-	Next []byte
-}
-
-type Route struct {
-	Dst  string
-	Next []byte
-}
-
-type Message struct {
-	Op   Operation
-	Dst  Route
-	Data []byte
-}
-
 func StartConnection(localAddr string, serverAddr string) *Node {
+	Log.Println("Initiating Network Connection")
+
 	listener, err := net.Listen("tcp", localAddr)
 	if err != nil {
 		Log.Fatal(err)
@@ -68,13 +48,58 @@ func StartConnection(localAddr string, serverAddr string) *Node {
 }
 
 func sendHB(rpcConn *rpc.Client, nodeInfo NodeInfo) {
+	Log.Printf("Sending HeartBeat.. [Rate : %d]\n",HeartBeatRate)
 	reply := false
 	for {
 		rpcConn.Call("Server.HeartBeat", nodeInfo, &reply)
-		time.Sleep(600 * time.Millisecond)
+		time.Sleep(HeartBeatRate * time.Millisecond)
 	}
 }
 
-func (n *Node) Incoming(arg Message, reply *bool) error {
+const (
+	ROUTE string = "ROUTE" 
+	GETFILE string = "GETFILE"
+	END string = "END"
+)
+
+type Operation struct {
+	Op   string
+	Next []byte
+}
+
+type Route struct {
+	Dst  string
+	Next []byte
+}
+
+type Data struct {
+	PublicKey string
+	FInfo FileInfo
+	Data []byte
+}
+
+type Message struct {
+	Op   Operation
+	Dst  Route
+	Data []byte
+}
+
+func (n *Node) Incoming(arg []byte, reply *bool) error {
+	Log.Println("RPC - Received RPC Message...")
+	var msg Message
+	err := decryptStruct(arg,n.privateKey,&msg)
+	if err != nil {
+		Log.Println(err)
+	}
+
+	Log.Printf("RPC - Message Decrypted [OP : %s]\n",msg.Op.Op)
+	switch msg.Op.Op (
+	case ROUTE :
+
+	case GETFILE:
+
+	case END :
+
+	)
 	return nil
 }
