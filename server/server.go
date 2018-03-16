@@ -1,21 +1,130 @@
-package server
+package main
 
-import "fmt"
+import (
+	//"crypto/ecdsa"
+	//"crypto/elliptic"
+	//"encoding/gob"
+	//"encoding/json"
+	//"errors"
+	//"flag"
+	//"fmt"
+	//"io/ioutil"
+	"log"
+	//"math/rand"
+	"net"
+	"net/rpc"
+	"os"
+	//"sort"
+	//"sync"
+	"time"
+)
 
-type Server struct {
-	nodes []Node
+var (
+	logger *log.Logger
+	//first string is pubkey, second string is ip address
+	nodeList map[string]string
+)
+
+type SneakyNode struct {
+	ip     string
+	pubKey string
 }
 
-type Node struct {
-	addr      string
-	publicKey stirng
+func main() {
+	args := os.Args[1:]
+
+	if len(args) != 1 {
+		log.Println("Usage: go run server.go ip:port")
+		return
+	}
+
+	nodeList = make(map[string]string)
+
+	sneakyNode := new(SneakyNode)
+	rpc.Register(sneakyNode)
+
+	// Listen for new connection
+	ln, err := net.ListenTCP("tcp", getAddr(":8080"))
+	checkError(err)
+	// Accept incoming connection
+	rpc.Accept(ln)
+
+	return
 }
 
-func Run() {
-	fmt.Println("server")
+func (s *SneakyNode) Hello(sn *SneakyNode, reply *string) error {
+	register(sn)
+
+	// run goroutine in infinite loop
+	go HeartBeat(sn)
+
+	*reply = "registered"
+	return nil
 }
 
-func (s *Server) HeartBeat(node Node) {
-	//RPC Incomming call from node
-	//HeartBeat Rate = 1 sec
+func (s *SneakyNode) GetRoute(sn *SneakyNode, reply *[]string) error {
+	var route []string
+	i := 0
+	for _, v := range nodeList {
+		route[i] = v
+	}
+	//TODO: return random list of 3 nodes
+	*reply = route
+	return nil
+}
+
+func (s *SneakyNode) Search(filename string, reply *SneakyNode) error {
+	for _, v := range nodeList {
+		c, err := rpc.Dial("tcp", v)
+		checkError(err)
+		err = c.Call("SneakyNode.Exists", filename, &reply)
+	}
+	return nil
+}
+
+func register(sn *SneakyNode) {
+	if nodeExists(sn.pubKey) {
+		return
+	} else {
+		nodeList[sn.pubKey] = sn.ip
+		return
+	}
+}
+
+func nodeExists(pubkey string) bool {
+	for k, _ := range nodeList {
+		if k == pubkey {
+			return true
+		}
+	}
+	return false
+}
+
+func HeartBeat(sn *SneakyNode) {
+	for {
+		_, err := rpc.Dial("tcp", sn.ip)
+		if err != nil {
+			for k, _ := range nodeList {
+				if k == sn.pubKey {
+					delete(nodeList, k)
+				}
+			}
+
+		}
+
+		time.Sleep(8 * time.Second)
+	}
+}
+
+func checkError(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func getAddr(ip string) *net.TCPAddr {
+	addr, err := net.ResolveTCPAddr("tcp", ip)
+	checkError(err)
+	log.Println("Listening on", addr)
+	return addr
 }
