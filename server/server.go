@@ -62,6 +62,17 @@ func (s *SneakyNode) Hello(sn *SneakyNode, reply *string) error {
 	return nil
 }
 
+func (s *SneakyNode) getRoute(sn *SneakyNode, reply *[]string) error {
+	var route []string
+	i := 0
+	for _, v := range nodeList {
+		route[i] = v
+	}
+	//TODO: return random list of 3 nodes
+	*reply = route
+	return nil
+}
+
 func register(sn *SneakyNode) {
 	if nodeExists(sn.pubKey) {
 		return
