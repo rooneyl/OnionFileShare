@@ -6,14 +6,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"sort"
+	"path"
 )
 
 var Path = "../Data"
 
 type Chunk struct {
-	Fname  string
 	Index  int
 	Length int
 	Data   []byte
@@ -25,9 +23,43 @@ type FileInfo struct {
 	Hash  string
 }
 
+func writeFile(finfo FileInfo) error {
+	fname := finfo.Fname + ".tmp"
+	tmpf, err := ioutil.TempFile(Path, fname)
+	if err != nil {
+		return err
+	}
+	defer tmpf.Close()
+	b := make([]byte, finfo.Size)
+	_, err = tmpf.Write(b)
+	return err
+}
+
+func doneWriting(finfo FileInfo) (bool, error) {
+	fname := finfo.Fname + ".tmp"
+	tmp := path.Join(Path, fname)
+	tmpf, err := os.Open(tmp)
+	if err != nil {
+		return false, err
+	}
+	defer tmpf.Close()
+
+	hash, _, err := hashFile(tmpf)
+	if hash == finfo.Hash {
+		data, _ := ioutil.ReadFile(tmp)
+		err = ioutil.WriteFile(path.Join(Path, finfo.Fname), data, 0644)
+		if err != nil {
+			return false, err
+		}
+		err = os.RemoveAll(tmp)
+		return true, err
+	}
+	return false, err
+}
+
 func getChunk(index int, length int, fname string) (Chunk, error) {
 	var chunk Chunk
-	f, err := os.Open(filepath.Join(Path, fname))
+	f, err := os.Open(path.Join(Path, fname))
 	if err != nil {
 		return chunk, err
 	}
@@ -41,7 +73,6 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	data := make([]byte, size)
 	_, err = f.ReadAt(data, int64(index))
 	if err == nil {
-		chunk.Fname = fname
 		chunk.Index = index
 		chunk.Length = length
 		chunk.Data = data
@@ -49,48 +80,36 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	return chunk, err
 }
 
-func combineChunks(Chunks []Chunk) (fname string, combined []byte, b bool) {
-	if len(Chunks) == 0 {
-		return "", nil, false
-	}
-	if len(Chunks) > 1 {
-		sort.Slice(Chunks, func(i, j int) bool {
-			return Chunks[i].Index < Chunks[j].Index
-		})
-	}
-
-	fname = Chunks[0].Fname
-	for i, chunk := range Chunks {
-		if chunk.Fname != fname || chunk.Index != i || Chunks[0].Length != len(Chunks) {
-			return "", nil, false
-		}
-		combined = append(combined, chunk.Data...)
-	}
-	return fname, combined, true
-}
-
-func createFile(fname string, data []byte) error {
-	name := filepath.Join(Path, fname)
-	err := ioutil.WriteFile(name, data, 0644)
+func writeChunk(finfo FileInfo, chunk Chunk) error {
+	name := finfo.Fname + ".tmp"
+	tmp := path.Join(Path, name)
+	tmpf, err := os.OpenFile(tmp, os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	return nil
+	defer tmpf.Close()
+	_, err = tmpf.WriteAt(chunk.Data, int64(chunk.Index))
+	return err
+}
+
+func hashFile(f *os.File) (string, int, error) {
+	h := md5.New()
+	n, err := io.Copy(h, f)
+	return hex.EncodeToString(h.Sum(nil)), int(n), err
 }
 
 func searchFile(fname string) (FileInfo, error) {
 	var fileInfo FileInfo
-	f, err := os.Open(filepath.Join(Path, fname))
+	f, err := os.Open(path.Join(Path, fname))
 	if err != nil {
 		return fileInfo, err
 	}
 	defer f.Close()
-	h := md5.New()
-	n, err := io.Copy(h, f)
+	hash, size, err := hashFile(f)
 	if err == nil {
 		fileInfo.Fname = fname
-		fileInfo.Size = int(n)
-		fileInfo.Hash = hex.EncodeToString(h.Sum(nil))
+		fileInfo.Size = size
+		fileInfo.Hash = hash
 	}
 	return fileInfo, err
 }
