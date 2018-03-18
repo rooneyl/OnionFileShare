@@ -45,16 +45,30 @@ func doneWriting(finfo FileInfo) (bool, error) {
 	defer tmpf.Close()
 
 	hash, _, err := hashFile(tmpf)
-	if hash == finfo.Hash {
-		data, _ := ioutil.ReadFile(tmp)
-		err = ioutil.WriteFile(path.Join(Path, finfo.Fname), data, 0644)
-		if err != nil {
-			return false, err
-		}
-		err = os.RemoveAll(tmp)
+	if err != nil {
+		return false, err
+	}
+	ok, err := checkHash(hash, finfo, tmp)
+	if err != nil {
+		return false, err
+	}
+	err = os.RemoveAll(tmp)
+	if ok {
 		return true, err
 	}
 	return false, err
+}
+
+func checkHash(hash string, finfo FileInfo, tmp string) (bool, error) {
+	if hash == finfo.Hash {
+		data, _ := ioutil.ReadFile(tmp)
+		err := ioutil.WriteFile(path.Join(Path, finfo.Fname), data, 0644)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	return false, nil
 }
 
 func getChunk(index int, length int, fname string) (Chunk, error) {
