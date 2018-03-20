@@ -21,6 +21,7 @@ type FileInfo struct {
 	Fname string
 	Size  int
 	Hash  string
+	Nodes []NodeInfo
 }
 
 func writeFile(finfo FileInfo) error {

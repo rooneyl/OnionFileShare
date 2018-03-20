@@ -12,10 +12,13 @@ type NodeInfo struct {
 }
 
 type Node struct {
-	nodeInfo   NodeInfo
-	listener   net.Listener
-	rpcConn    *rpc.Client
-	privateKey string
+	nodeInfo       NodeInfo
+	listener       net.Listener
+	rpcConn        *rpc.Client
+	privateKey     string
+	dataPublicKey  string
+	dataPrivateKey string
+	fileStatus     map[string][]byte
 }
 
 func StartConnection(localAddr string, serverAddr string) *Node {
@@ -34,32 +37,35 @@ func StartConnection(localAddr string, serverAddr string) *Node {
 	Log.Printf("Connected to Server at %s\n", serverAddr)
 
 	pubKey, priKey := generateKeys()
+	dataPubKey, dataPriKey := generateKeys()
 
 	node := Node{
-		nodeInfo:   NodeInfo{localAddr, pubKey},
-		listener:   listener,
-		rpcConn:    connServer,
-		privateKey: priKey,
+		nodeInfo:       NodeInfo{localAddr, pubKey},
+		listener:       listener,
+		rpcConn:        connServer,
+		privateKey:     priKey,
+		dataPublicKey:  dataPubKey,
+		dataPrivateKey: dataPriKey,
 	}
 
-	go sendHB(node.rpcConn, node.nodeInfo)
+	go func(rpcConn *rpc.Client, nodeInfo NodeInfo) {
+		Log.Printf("Sending HeartBeat.. [Rate : %d]\n", HeartBeatRate)
+		reply := false
+		for {
+			rpcConn.Call("Server.HeartBeat", nodeInfo, &reply)
+			time.Sleep(HeartBeatRate * time.Millisecond)
+		}
+	}(node.rpcConn, node.nodeInfo)
 
 	return &node
-}
-
-func sendHB(rpcConn *rpc.Client, nodeInfo NodeInfo) {
-	Log.Printf("Sending HeartBeat.. [Rate : %d]\n", HeartBeatRate)
-	reply := false
-	for {
-		rpcConn.Call("Server.HeartBeat", nodeInfo, &reply)
-		time.Sleep(HeartBeatRate * time.Millisecond)
-	}
 }
 
 const (
 	ROUTE   string = "ROUTE"
 	GETFILE string = "GETFILE"
 	END     string = "END"
+	SEARCH  string = "SEARCH"
+	RESULT  string = "RESULT"
 )
 
 type Operation struct {
@@ -130,6 +136,23 @@ func (n *Node) Incoming(arg Message, reply *bool) error {
 		arg.Data = encData
 
 	case END:
+		var data Data
+		errData := decryptStruct(arg.Data, n.dataPrivateKey, &data)
+		if errData != nil {
+			Log.Println("RPC - Encrypting Data Failed")
+			return nil
+		}
+
+		errWrite := writeChunk(data.FInfo, data.Data)
+		if errWrite != nil {
+			Log.Println("FileManager - Writing Chunk Failed")
+			return nil
+		}
+
+		n.fileStatus[data.FInfo.Fname][data.Data.Index] = 1
+
+		return nil
+	default:
 
 	}
 
