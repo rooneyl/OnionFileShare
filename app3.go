@@ -4,7 +4,7 @@ import (
 	"./node"
 	"fmt"
 	"os"
-	"log"
+	//"log"
 )
 
 func main() {
@@ -19,17 +19,19 @@ func main() {
 		fmt.Printf("-> %s\n", err)
 	}
 
-
 	fileInfoArr := client.Search("file1");
 	fileInfo := fileInfoArr[0]
 
-	err = client.ChangeDirectory("data")
+	fileInfoArr2 := client.Search("file2");
+	fileInfo2 := fileInfoArr2[0]
+
+	err = client.GetFile(fileInfo)
 	if err != nil {
-		fmt.Println("Error ::: Unable to Change Directory")
+		fmt.Println("Error ::: Unable to Get File")
 		fmt.Printf("-> %s\n", err)
 	}
 
-	err = client.GetFile(fileInfo)
+	err = client.GetFile(fileInfo2)
 	if err != nil {
 		fmt.Println("Error ::: Unable to Get File")
 		fmt.Printf("-> %s\n", err)
@@ -50,8 +52,3 @@ func main() {
 	**/
 }
 
-func checkError(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
