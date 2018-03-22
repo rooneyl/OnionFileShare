@@ -9,7 +9,7 @@ import (
 	"path"
 )
 
-var Path = "../Data"
+var Path = "./data"
 
 type Chunk struct {
 	Index  int

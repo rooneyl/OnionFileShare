@@ -1,12 +1,11 @@
 package node
 
 import (
-	"crypto/x509"
-	"crypto/rsa"
 	"crypto/rand"
-	"log"
-	"encoding/hex"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 )
 
@@ -40,67 +39,66 @@ func decryptData(data []byte, privateKey string) ([]byte, error) {
 
 	label := []byte("orders")
 
-	decryptedData, err := rsa.DecryptOAEP(sha256.New(),rand.Reader,privKey,data, label)
+	decryptedData, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, privKey, data, label)
 	checkError(err)
 
 	return decryptedData, nil
 }
 
-func encryptStruct(struc interface{}, publicKey string) ([]byte, error) {
-
+func encryptStruct(struc interface{}, pubByte []byte) ([]byte, error) {
 	data, err := json.Marshal(struc)
-	checkError(err)
+	if err != nil {
+		Log.Fatal(err)
+	}
 
-	pubKeyBytes, err := hex.DecodeString(publicKey)
-	checkError(err)
+	pubKey, err := x509.ParsePKCS1PublicKey(pubByte)
+	if err != nil {
+		Log.Fatal(err)
+	}
 
-	pubKey, err := x509.ParsePKIXPublicKey(pubKeyBytes)
-	checkError(err)
-
-	rsaPubKey := pubKey.(*rsa.PublicKey)
 	label := []byte("orders")
 
-	encryptedStruct, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, rsaPubKey, data, label)
-	checkError(err)
+	encryptedStruct, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pubKey, data, label)
+	if err != nil {
+		Log.Fatal(err)
+	}
 
 	return encryptedStruct, nil
 }
 
-func decryptStruct(data []byte, privateKey string, stru interface{}) error {
-	privKeyBytes, err := hex.DecodeString(privateKey)
-	checkError(err)
-
-	privKey, err := x509.ParsePKCS1PrivateKey(privKeyBytes)
-	checkError(err)
+func decryptStruct(data []byte, priByte []byte, stru interface{}) error {
+	privKey, err := x509.ParsePKCS1PrivateKey(priByte)
+	if err != nil {
+		Log.Fatal(err)
+	}
 
 	label := []byte("orders")
 
-	decryptedData, err := rsa.DecryptOAEP(sha256.New(),rand.Reader,privKey,data, label)
+	decryptedData, err := rsa.DecryptOAEP(sha256.New(), rand.Reader, privKey, data, label)
 
 	json.Unmarshal(decryptedData, stru)
-	checkError(err)
+	if err != nil {
+		Log.Fatal(err)
+	}
 
 	return nil
 }
 
-func generateKeys() (string, string) {
+func generateKeys() ([]byte, []byte) {
 
-	priv, err := rsa.GenerateKey(rand.Reader, 2048)
-	checkError(err)
+	pri, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		Log.Fatal(err)
+	}
 
-	privKeyBytes := x509.MarshalPKCS1PrivateKey(priv)
+	priByte := x509.MarshalPKCS1PrivateKey(pri)
+	pubByte := x509.MarshalPKCS1PublicKey(&pri.PublicKey)
 
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(priv.PublicKey)
-	checkError(err)
-
-	pubKeyString := hex.EncodeToString(pubKeyBytes)
-	privKeyString := hex.EncodeToString(privKeyBytes)
-
-	return pubKeyString, privKeyString
+	return pubByte, priByte
 }
 
 func checkError(err error) {
 	if err != nil {
-		log.Fatal(err)
+		Log.Fatal(err)
 	}
 }

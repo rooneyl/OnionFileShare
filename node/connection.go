@@ -7,17 +7,17 @@ import (
 )
 
 type NodeInfo struct {
-	addr      string
-	publicKey string
+	Addr      string
+	PublicKey []byte
 }
 
 type Node struct {
 	nodeInfo       NodeInfo
 	listener       net.Listener
 	rpcConn        *rpc.Client
-	privateKey     string
-	dataPublicKey  string
-	dataPrivateKey string
+	privateKey     []byte
+	dataPublicKey  []byte
+	dataPrivateKey []byte
 	fileStatus     map[string][]byte
 }
 
@@ -57,6 +57,9 @@ func StartConnection(localAddr string, serverAddr string) *Node {
 		}
 	}(node.rpcConn, node.nodeInfo)
 
+	rpc.Register(&node)
+	go rpc.Accept(node.listener)
+
 	return &node
 }
 
@@ -79,7 +82,7 @@ type Route struct {
 }
 
 type Data struct {
-	PublicKey string
+	PublicKey []byte
 	FInfo     FileInfo
 	Data      Chunk
 }
@@ -171,4 +174,14 @@ func (n *Node) Incoming(arg Message, reply *bool) error {
 	}
 
 	return nil
+}
+
+func (n *Node) Search(fileName string, reply *FileInfo) error {
+	Log.Printf("RPC - Search...[%s]\n", fileName)
+	fileInfo, err := searchFile(fileName)
+	if err != nil {
+		Log.Println(err)
+	}
+	*reply = fileInfo
+	return err
 }

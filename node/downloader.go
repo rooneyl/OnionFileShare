@@ -39,7 +39,7 @@ func (d *Downloader) getFile(file FileInfo) error {
 			data.Data.Index = index
 			data.PublicKey = d.node.dataPublicKey
 			route, operation := d.generatePath(node, randomNode)
-			encrpytedData, err := encryptStruct(data, node.publicKey)
+			encrpytedData, err := encryptStruct(data, node.PublicKey)
 			if err != nil {
 				Log.Fatal("GetFile - Encrypting Data Failed")
 			}
@@ -59,7 +59,7 @@ func (d *Downloader) getFile(file FileInfo) error {
 	data.Data.Index = index
 	data.PublicKey = d.node.dataPublicKey
 	route, operation := d.generatePath(node, randomNode)
-	encrpytedData, err := encryptStruct(data, node.publicKey)
+	encrpytedData, err := encryptStruct(data, node.PublicKey)
 	if err != nil {
 		Log.Fatal("GetFile - Encrypting Data Failed")
 	}
@@ -100,15 +100,15 @@ func (d *Downloader) generatePath(dst NodeInfo, randomNode []NodeInfo) (Route, O
 
 	layerMessage(&route, &operation, randomNode)
 
-	next, err := encryptStruct(route, dst.publicKey)
+	next, err := encryptStruct(route, dst.PublicKey)
 	if err != nil {
 		Log.Fatal("GetFile - Encrypting Data Failed")
 	}
 
-	route.Dst = dst.addr
+	route.Dst = dst.Addr
 	route.Next = next
 
-	next, err = encryptStruct(operation, dst.publicKey)
+	next, err = encryptStruct(operation, dst.PublicKey)
 	if err != nil {
 		Log.Fatal("GetFile - Encrypting Data Failed")
 	}
@@ -126,14 +126,14 @@ func layerMessage(route *Route, operation *Operation, randomNode []NodeInfo) {
 	length := len(randomNode)
 	for i := 1; i < MinNumRoute; i++ {
 		n := rand.Int() % length
-		encryptedRoute, err := encryptStruct(*route, randomNode[n].publicKey)
+		encryptedRoute, err := encryptStruct(*route, randomNode[n].PublicKey)
 		if err != nil {
 			Log.Fatal("GetFile - Encrypting Data Failed")
 		}
 		route.Next = encryptedRoute
-		route.Dst = randomNode[n].addr
+		route.Dst = randomNode[n].Addr
 
-		encryptedOperation, err := encryptStruct(*operation, randomNode[n].publicKey)
+		encryptedOperation, err := encryptStruct(*operation, randomNode[n].PublicKey)
 		if err != nil {
 			Log.Fatal("GetFile - Encrypting Data Failed")
 		}
