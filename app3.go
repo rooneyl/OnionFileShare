@@ -3,8 +3,8 @@ package main
 import (
 	"./node"
 	"fmt"
-	"log"
 	"os"
+	//"log"
 )
 
 func main() {
@@ -19,24 +19,19 @@ func main() {
 		fmt.Printf("-> %s\n", err)
 	}
 
-	// fileInfo := client.Search("file1.zip")
-	// for _, s := range fileInfo {
-	//     fmt.Printf("FileName - [%s] , FileSize - [%d]\n", s.Fname, s.Size)
-	//     fmt.Printf("Hash - %s\n", s.Hash)
-	//     fmt.Printf("Length [%d]\n", len(s.Nodes))
-	//     fmt.Println(s)
-	// }
-
-	fileInfoArr := client.Search("file1")
+	fileInfoArr := client.Search("file1");
 	fileInfo := fileInfoArr[0]
 
-	err = client.ChangeDirectory("data")
+	fileInfoArr2 := client.Search("file2");
+	fileInfo2 := fileInfoArr2[0]
+
+	err = client.GetFile(fileInfo)
 	if err != nil {
-		fmt.Println("Error ::: Unable to Change Directory")
+		fmt.Println("Error ::: Unable to Get File")
 		fmt.Printf("-> %s\n", err)
 	}
 
-	err = client.GetFile(fileInfo)
+	err = client.GetFile(fileInfo2)
 	if err != nil {
 		fmt.Println("Error ::: Unable to Get File")
 		fmt.Printf("-> %s\n", err)
@@ -57,8 +52,3 @@ func main() {
 	**/
 }
 
-func checkError(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
