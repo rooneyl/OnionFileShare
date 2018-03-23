@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 )
 
 func main() {
@@ -13,12 +14,13 @@ func main() {
 		fmt.Println("USAGE : go run app.go localIP:Port serverIP:Port")
 	}
 
-	client, err := node.Run(os.Args[1], os.Args[2])
+	client, err := node.Run(os.Args[1], os.Args[2], true)
 	if err != nil {
 		fmt.Println("Error ::: Unable to Run Node")
 		fmt.Printf("-> %s\n", err)
 	}
 
+	time.Sleep(time.Second)
 	fileInfo := client.Search("file1.zip")
 	for _, s := range fileInfo {
 		fmt.Printf("FileName - [%s] , FileSize - [%d]\n", s.Fname, s.Size)

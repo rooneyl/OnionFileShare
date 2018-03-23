@@ -13,13 +13,13 @@ func main() {
 		fmt.Println("USAGE : go run app.go localIP:Port serverIP:Port")
 	}
 
-	client, err := node.Run(os.Args[1], os.Args[2])
+	client, err := node.Run(os.Args[1], os.Args[2], true)
 	if err != nil {
 		fmt.Println("Error ::: Unable to Run Node")
 		fmt.Printf("-> %s\n", err)
 	}
 
-	fileInfoArr := client.Search("file2");
+	fileInfoArr := client.Search("file2")
 	fileInfo := fileInfoArr[0]
 
 	err = client.GetFile(fileInfo)
@@ -54,4 +54,3 @@ func main() {
 	/ client.Disconnect() error
 	**/
 }
-
