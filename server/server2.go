@@ -26,7 +26,7 @@ type FileInfo struct {
 	Fname string
 	Size  int
 	Hash  string
-	Node  []NodeInfo
+	Nodes []NodeInfo
 }
 
 type Server struct {
@@ -82,7 +82,7 @@ func (s *Server) HeartBeat(nodeInfo NodeInfo, reply *bool) error {
 func (s *Server) Search(fileName string, reply *[]FileInfo) error {
 	Log.Printf("RPC - Search...[%s]\n", fileName)
 	fileSource := make(map[string]*FileInfo)
-	for addr, node := range s.Nodes {
+	for addr, nodeStatus := range s.Nodes {
 		client, err := rpc.Dial("tcp", addr)
 		defer client.Close()
 		if err != nil {
@@ -96,26 +96,18 @@ func (s *Server) Search(fileName string, reply *[]FileInfo) error {
 		}
 
 		if fileSource[fileInfo.Hash] == nil {
-			fileInfo.Node = append(fileInfo.Node, node.Node)
+			fileInfo.Nodes = append(fileInfo.Nodes, nodeStatus.Node)
 			fileSource[fileInfo.Hash] = &fileInfo
-			Log.Println(fileSource[fileInfo.Hash].Node[0].Addr)
 		} else {
-			appendNode := append(fileSource[fileInfo.Hash].Node, node.Node)
-			file := fileSource[fileInfo.Hash]
-			file.Node = appendNode
+			appendNode := append(fileSource[fileInfo.Hash].Nodes, nodeStatus.Node)
+			fileSource[fileInfo.Hash].Nodes = appendNode
 		}
 	}
 
-	var rsp []FileInfo
 	for _, fileInfo := range fileSource {
-		rsp = append(rsp, *fileInfo)
+		*reply = append(*reply, *fileInfo)
 	}
 
-	*reply = rsp
-
-	for _, s := range rsp {
-		Log.Println(s)
-	}
 	return nil
 }
 

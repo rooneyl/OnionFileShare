@@ -26,13 +26,13 @@ func StartConnection(localAddr string, serverAddr string) *Node {
 
 	listener, err := net.Listen("tcp", localAddr)
 	if err != nil {
-		Log.Fatal(err)
+		Log.Fatalf("Error ::: Listening at [%s] Failed\n", localAddr)
 	}
 	Log.Printf("Running Node at %s\n", localAddr)
 
 	connServer, err := rpc.Dial("tcp", serverAddr)
 	if err != nil {
-		Log.Fatal(err)
+		Log.Fatalf("Error ::: Connecting to Server Failed at [%s] Failed\n", serverAddr)
 	}
 	Log.Printf("Connected to Server at %s\n", serverAddr)
 
@@ -46,6 +46,7 @@ func StartConnection(localAddr string, serverAddr string) *Node {
 		privateKey:     priKey,
 		dataPublicKey:  dataPubKey,
 		dataPrivateKey: dataPriKey,
+		fileStatus:     make(map[string][]byte),
 	}
 
 	go func(rpcConn *rpc.Client, nodeInfo NodeInfo) {

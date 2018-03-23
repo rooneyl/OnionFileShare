@@ -1,6 +1,7 @@
 package node
 
 import (
+	"errors"
 	"log"
 	"os"
 )
@@ -36,6 +37,16 @@ func (n *NodeAPI) Search(fileName string) []FileInfo {
 }
 
 func (n *NodeAPI) GetFile(file FileInfo) error {
+	// for i, node := range file.Nodes {
+	// if node.Addr == n.localAddr {
+	// file.Nodes = append(file.Nodes[:i], file.Nodes[i+1:]...)
+	// }
+	// }
+
+	if len(file.Nodes) == 0 {
+		return errors.New("Nodes Unavailiable or Already Has The File")
+	}
+
 	return n.downloader.getFile(file)
 }
 
