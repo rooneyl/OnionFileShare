@@ -3,10 +3,12 @@ package node
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 )
 
 var Path = "./data"
@@ -26,13 +28,8 @@ type FileInfo struct {
 
 func writeFile(finfo FileInfo) error {
 	fname := finfo.Fname + ".tmp"
-	tmpf, err := ioutil.TempFile(Path, fname)
-	if err != nil {
-		return err
-	}
-	defer tmpf.Close()
 	b := make([]byte, finfo.Size)
-	_, err = tmpf.Write(b)
+	err := ioutil.WriteFile(path.Join(Path, fname), b, 0644)
 	return err
 }
 
@@ -53,6 +50,7 @@ func doneWriting(finfo FileInfo) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	tmpf.Close()
 	err = os.RemoveAll(tmp)
 	if ok {
 		return true, err
@@ -61,6 +59,8 @@ func doneWriting(finfo FileInfo) (bool, error) {
 }
 
 func checkHash(hash string, finfo FileInfo, tmp string) (bool, error) {
+	fmt.Println("tmp hash: ", hash)
+	fmt.Println("FileInfo Hash: ", finfo.Hash)
 	if hash == finfo.Hash {
 		data, _ := ioutil.ReadFile(tmp)
 		err := ioutil.WriteFile(path.Join(Path, finfo.Fname), data, 0644)
@@ -84,7 +84,7 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	if err != nil {
 		return chunk, err
 	}
-	size := fi.Size() / int64(length)
+	size := int(fi.Size()) / length
 	data := make([]byte, size)
 	_, err = f.ReadAt(data, int64(index))
 	if err == nil {
@@ -133,6 +133,10 @@ func changeDir(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return err
 	}
-	Path = path
+	Path = strings.ToLower(path)
 	return nil
+}
+
+func getDir() string {
+	return Path
 }

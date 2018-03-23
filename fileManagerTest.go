@@ -1,8 +1,9 @@
 package main
 
 import (
-	"./node"
 	"fmt"
+
+	"./node"
 )
 
 func main() {
@@ -26,17 +27,20 @@ func main() {
 		}
 	}
 
-	fmt.Println("WriteBack")
+	fmt.Println("ChangeDir")
 	err = fileManager.ChangeDir("./Data2")
 	if err != nil {
 		fmt.Println(err)
 	}
+	fmt.Println("GetDir: ", fileManager.GetDir())
 
+	fmt.Println("WriteFile")
 	err = fileManager.WriteFile(file)
 	if err != nil {
 		fmt.Println(err)
 	}
 
+	fmt.Println("WriteChunk")
 	for i := 0; i < 10; i++ {
 		err := fileManager.WriteChunk(file, chunks[i])
 		if err != nil {
@@ -44,6 +48,7 @@ func main() {
 		}
 	}
 
+	fmt.Println("DoneWriting")
 	b, err := fileManager.DoneWriting(file)
 	if err != nil {
 		fmt.Println(err)
@@ -51,6 +56,8 @@ func main() {
 
 	if !b {
 		fmt.Println("FAIL")
+	} else {
+		fmt.Println(b)
 	}
 
 }
