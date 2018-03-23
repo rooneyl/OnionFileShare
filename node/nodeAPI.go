@@ -33,14 +33,11 @@ func Run(localAddr string, serverAddr string, debug bool) (NodeAPI, error) {
 }
 
 func (n *NodeAPI) Search(fileName string) []FileInfo {
-	Log.Println([]byte("file1.zip"))
-	Log.Println([]byte(fileName))
 	var fileInfo []FileInfo
 	err := n.node.rpcConn.Call("Server.Search", fileName, &fileInfo)
 	if err != nil {
 		Log.Fatal("Error ::: Connection with Server Unavailiable")
 	}
-	Log.Println("XX")
 	return fileInfo
 }
 

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 )
 
 func main() {
@@ -20,7 +19,6 @@ func main() {
 		fmt.Printf("-> %s\n", err)
 	}
 
-	time.Sleep(time.Second)
 	fileInfo := client.Search("file1.zip")
 	for _, s := range fileInfo {
 		fmt.Printf("FileName - [%s] , FileSize - [%d]\n", s.Fname, s.Size)
