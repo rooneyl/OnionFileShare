@@ -1,11 +1,12 @@
 package main
 
 import (
-	"./node"
 	"bufio"
 	"fmt"
 	"os"
 	"strconv"
+
+	"./node"
 )
 
 var client node.NodeAPI
@@ -13,11 +14,12 @@ var scanner *bufio.Scanner
 
 func main() {
 	if len(os.Args) != 3 {
-		fmt.Println("USAGE : go run application.go localIP:Port serverIP:Poart")
+		fmt.Println("USAGE : go run application.go localIP:Port serverIP:Port")
 		return
 	}
 
-	client, err := node.Run(os.Args[1], os.Args[2], true)
+	nodeapi, err := node.Run(os.Args[1], os.Args[2], true)
+	client = nodeapi
 	scanner = bufio.NewScanner(os.Stdin)
 	if err != nil {
 		fmt.Printf("Error : Unable to Run Node")
@@ -60,7 +62,12 @@ func search() {
 		return
 	}
 
-	fileInfo := client.Search(fname)
+	//fmt.Printf("%#v\n", client)
+	fileInfo, err := client.Search(fname)
+	if err != nil {
+		fmt.Println("search error: ", err)
+		return
+	}
 	if fileInfo == nil || len(fileInfo) == 0 {
 		fmt.Printf("File [%s] Does Not Exists on the Network\n", fname)
 		return

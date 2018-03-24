@@ -2,6 +2,7 @@ package node
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -32,13 +33,15 @@ func Run(localAddr string, serverAddr string, debug bool) (NodeAPI, error) {
 	return nodeAPI, nil
 }
 
-func (n *NodeAPI) Search(fileName string) []FileInfo {
+func (n *NodeAPI) Search(fileName string) ([]FileInfo, error) {
+	fmt.Println("in nodeAPI Search, fileName: ", fileName)
 	var fileInfo []FileInfo
 	err := n.node.rpcConn.Call("Server.Search", fileName, &fileInfo)
 	if err != nil {
+		return nil, err
 		Log.Fatal("Error ::: Connection with Server Unavailiable")
 	}
-	return fileInfo
+	return fileInfo, err
 }
 
 func (n *NodeAPI) GetFile(file FileInfo) error {

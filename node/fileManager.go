@@ -51,8 +51,6 @@ func doneWriting(finfo FileInfo) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	data, _ := ioutil.ReadFile(tmp)
-	err = ioutil.WriteFile(path.Join(Path, finfo.Fname), data, 0644)
 	tmpf.Close()
 	err = os.RemoveAll(tmp)
 	if ok {
@@ -90,10 +88,9 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	if (offset + size) > fi.Size() {
 		size = size - (offset + size - fi.Size())
 	}
-	fmt.Println("chunk size", size)
 	data := make([]byte, size)
 	n, err := f.ReadAt(data, offset)
-	fmt.Println("chunk", index, "read", n, "bytes:", offset, "to", (offset + int64(n)))
+	fmt.Println("chunk", index, "( size", size, ") read", n, "bytes :", offset, "to", (offset + int64(n)))
 	if err == nil {
 		chunk.Index = index
 		chunk.Length = length
@@ -127,12 +124,6 @@ func hashFile(f *os.File) (string, int64, error) {
 	hash := hex.EncodeToString(h.Sum(nil))
 	fmt.Println(f.Name(), " ", hash)
 	return hash, n, err
-
-	// b, _ := ioutil.ReadFile(f.Name())
-	// h := md5.Sum(b)
-	// hash := hex.EncodeToString(h[:])
-	// fmt.Println(f.Name(), " ", hash)
-	// return hash, int64(len(b)), nil
 }
 
 func searchFile(fname string) (FileInfo, error) {
@@ -148,7 +139,7 @@ func searchFile(fname string) (FileInfo, error) {
 		fileInfo.Fname = fname
 		fileInfo.Size = int(size)
 		fileInfo.Hash = hash
-		fmt.Println("file size", fileInfo.Size, "bytes")
+		fmt.Println("File size", fileInfo.Size, "bytes")
 	}
 	return fileInfo, err
 }
