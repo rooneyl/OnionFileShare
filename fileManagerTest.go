@@ -12,7 +12,7 @@ func main() {
 	fileManager := node.GetFileManager()
 	//fname := "file1.zip"
 	fname := "test.txt"
-	length := 2
+	length := 10
 
 	fmt.Println("Search File")
 	file, err := fileManager.SearchFile(fname)
