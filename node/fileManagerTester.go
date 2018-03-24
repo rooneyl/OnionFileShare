@@ -2,10 +2,10 @@ package node
 
 type fileManager int
 
-func (f *fileManager) WriteFile(finfo FileInfo) error {
+func (x *fileManager) WriteFile(finfo FileInfo) error {
 	return writeFile(finfo)
 }
-func (f *fileManager) DoneWriting(finfo FileInfo) (bool, error) {
+func (x *fileManager) DoneWriting(finfo FileInfo) (bool, error) {
 	return doneWriting(finfo)
 }
 func (x *fileManager) GetChunk(i int, l int, f string) (Chunk, error) {
@@ -20,6 +20,10 @@ func (x *fileManager) SearchFile(f string) (FileInfo, error) {
 
 func (x *fileManager) ChangeDir(f string) error {
 	return changeDir(f)
+}
+
+func (x *fileManager) GetDir() string {
+	return getDir()
 }
 
 func GetFileManager() fileManager {

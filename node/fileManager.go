@@ -3,10 +3,13 @@ package node
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"path"
+	"strings"
 )
 
 var Path = "./data"
@@ -26,13 +29,8 @@ type FileInfo struct {
 
 func writeFile(finfo FileInfo) error {
 	fname := finfo.Fname + ".tmp"
-	tmpf, err := ioutil.TempFile(Path, fname)
-	if err != nil {
-		return err
-	}
-	defer tmpf.Close()
 	b := make([]byte, finfo.Size)
-	_, err = tmpf.Write(b)
+	err := ioutil.WriteFile(path.Join(Path, fname), b, 0644)
 	return err
 }
 
@@ -53,6 +51,9 @@ func doneWriting(finfo FileInfo) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	data, _ := ioutil.ReadFile(tmp)
+	err = ioutil.WriteFile(path.Join(Path, finfo.Fname), data, 0644)
+	tmpf.Close()
 	err = os.RemoveAll(tmp)
 	if ok {
 		return true, err
@@ -84,14 +85,22 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	if err != nil {
 		return chunk, err
 	}
-	size := fi.Size() / int64(length)
+	size := int64(math.Ceil(float64(fi.Size()) / float64(length)))
+	offset := int64(index) * size
+	if (offset + size) > fi.Size() {
+		size = size - (offset + size - fi.Size())
+	}
+	fmt.Println("chunk size", size)
 	data := make([]byte, size)
-	_, err = f.ReadAt(data, int64(index))
+	n, err := f.ReadAt(data, offset)
+	fmt.Println("chunk", index, "read", n, "bytes:", offset, "to", (offset + int64(n)))
 	if err == nil {
 		chunk.Index = index
 		chunk.Length = length
 		chunk.Data = data
 	}
+
+	//fmt.Println("chunk", index, ":", chunk.Data)
 	return chunk, err
 }
 
@@ -103,14 +112,27 @@ func writeChunk(finfo FileInfo, chunk Chunk) error {
 		return err
 	}
 	defer tmpf.Close()
-	_, err = tmpf.WriteAt(chunk.Data, int64(chunk.Index))
+
+	size := int64(math.Ceil(float64(finfo.Size) / float64(chunk.Length)))
+	offset := int64(chunk.Index) * size
+	n, err := tmpf.WriteAt(chunk.Data, offset)
+	fmt.Println("chunk", chunk.Index, "wrote", n, "bytes:", offset, "to", (offset + int64(n)))
+	//fmt.Println("chunk", chunk.Index, ":", chunk.Data)
 	return err
 }
 
-func hashFile(f *os.File) (string, int, error) {
+func hashFile(f *os.File) (string, int64, error) {
 	h := md5.New()
 	n, err := io.Copy(h, f)
-	return hex.EncodeToString(h.Sum(nil)), int(n), err
+	hash := hex.EncodeToString(h.Sum(nil))
+	fmt.Println(f.Name(), " ", hash)
+	return hash, n, err
+
+	// b, _ := ioutil.ReadFile(f.Name())
+	// h := md5.Sum(b)
+	// hash := hex.EncodeToString(h[:])
+	// fmt.Println(f.Name(), " ", hash)
+	// return hash, int64(len(b)), nil
 }
 
 func searchFile(fname string) (FileInfo, error) {
@@ -120,11 +142,13 @@ func searchFile(fname string) (FileInfo, error) {
 		return fileInfo, err
 	}
 	defer f.Close()
+
 	hash, size, err := hashFile(f)
 	if err == nil {
 		fileInfo.Fname = fname
-		fileInfo.Size = size
+		fileInfo.Size = int(size)
 		fileInfo.Hash = hash
+		fmt.Println("file size", fileInfo.Size, "bytes")
 	}
 	return fileInfo, err
 }
@@ -133,6 +157,10 @@ func changeDir(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return err
 	}
-	Path = path
+	Path = strings.ToLower(path)
 	return nil
+}
+
+func getDir() string {
+	return Path
 }
