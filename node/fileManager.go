@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -59,8 +58,6 @@ func doneWriting(finfo FileInfo) (bool, error) {
 }
 
 func checkHash(hash string, finfo FileInfo, tmp string) (bool, error) {
-	fmt.Println("tmp hash: ", hash)
-	fmt.Println("FileInfo Hash: ", finfo.Hash)
 	if hash == finfo.Hash {
 		data, _ := ioutil.ReadFile(tmp)
 		err := ioutil.WriteFile(path.Join(Path, finfo.Fname), data, 0644)
@@ -84,7 +81,7 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	if err != nil {
 		return chunk, err
 	}
-	size := int(fi.Size()) / length
+	size := fi.Size() / int64(length)
 	data := make([]byte, size)
 	_, err = f.ReadAt(data, int64(index))
 	if err == nil {
@@ -92,10 +89,14 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 		chunk.Length = length
 		chunk.Data = data
 	}
+
+	fmt.Println("chunk", index, ":", chunk.Data)
 	return chunk, err
 }
 
 func writeChunk(finfo FileInfo, chunk Chunk) error {
+	fmt.Println("chunk", chunk.Index, ":", chunk.Data)
+
 	name := finfo.Fname + ".tmp"
 	tmp := path.Join(Path, name)
 	tmpf, err := os.OpenFile(tmp, os.O_WRONLY, 0644)
@@ -107,10 +108,13 @@ func writeChunk(finfo FileInfo, chunk Chunk) error {
 	return err
 }
 
-func hashFile(f *os.File) (string, int, error) {
+func hashFile(f *os.File) (string, int64, error) {
 	h := md5.New()
-	n, err := io.Copy(h, f)
-	return hex.EncodeToString(h.Sum(nil)), int(n), err
+	//n, err := io.Copy(h, f)
+	b, _ := ioutil.ReadFile(f.Name())
+	hash := hex.EncodeToString(h.Sum(b))
+	fmt.Println(f.Name(), " ", hash)
+	return hash, int64(len(b)), nil
 }
 
 func searchFile(fname string) (FileInfo, error) {
@@ -120,10 +124,11 @@ func searchFile(fname string) (FileInfo, error) {
 		return fileInfo, err
 	}
 	defer f.Close()
+
 	hash, size, err := hashFile(f)
 	if err == nil {
 		fileInfo.Fname = fname
-		fileInfo.Size = size
+		fileInfo.Size = int(size)
 		fileInfo.Hash = hash
 	}
 	return fileInfo, err
