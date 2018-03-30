@@ -18,6 +18,7 @@ type Node struct {
 	privateKey     []byte
 	dataPublicKey  []byte
 	dataPrivateKey []byte
+	AESKey		   []byte
 	fileStatus     map[string][]byte
 }
 
@@ -36,8 +37,8 @@ func StartConnection(localAddr string, serverAddr string) *Node {
 	}
 	Log.Printf("Connected to Server at %s\n", serverAddr)
 
-	pubKey, priKey := generateKeys()
-	dataPubKey, dataPriKey := generateKeys()
+	pubKey, priKey := GenerateKeys()
+	dataPubKey, dataPriKey := GenerateKeys()
 
 	node := Node{
 		nodeInfo:       NodeInfo{localAddr, pubKey},
@@ -72,14 +73,39 @@ const (
 	RESULT  string = "RESULT"
 )
 
+type OpBox struct {
+	AESKey []byte
+	OperationData []byte
+}
+
 type Operation struct {
-	Op   string
-	Next []byte
+	Op string
+	Next OpBox
+}
+
+//type Operation struct {
+//	Op   string
+//	Next []byte
+//}
+
+type RouteBox struct {
+	AESKey []byte
+	RouteData []byte
 }
 
 type Route struct {
-	Dst  string
-	Next []byte
+	Dst string
+	Next RouteBox
+}
+
+//type Route struct {
+//	Dst  string
+//	Next []byte
+//}
+
+type DataBox struct {
+	AESKey 	  []byte
+	DataData   []byte
 }
 
 type Data struct {
@@ -88,20 +114,53 @@ type Data struct {
 	Data      Chunk
 }
 
+//type Data struct {
+//	PublicKey []byte
+//	FInfo     FileInfo
+//	Data      Chunk
+//}
+
 type Message struct {
-	Op   []byte
-	Dst  []byte
-	Data []byte
+	Op   OpBox
+	Dst  RouteBox
+	Data DataBox
 }
+
+type OpMsg struct {
+	AESKey []byte
+	Op     []byte
+}
+
+type DstMsg struct {
+	AESKey []byte
+	Dst    []byte
+}
+
+type DataMsg struct {
+	AESKey []byte
+	Data   []byte
+}
+
+//type Message struct {
+//	Op   []byte
+//	Dst  []byte
+//	Data []byte
+//}
 
 func (n *Node) Incoming(arg Message, reply *bool) error {
 	Log.Println("RPC - Received RPC Message...")
 
-	var route Route
 	var operation Operation
+	var route Route
 
-	errRoute := decryptStruct(arg.Dst, n.privateKey, &route)
-	errOp := decryptStruct(arg.Op, n.privateKey, &operation)
+	//decrypt the Destination
+	errRoute := DecryptStruct(arg.Dst.AESKey, arg.Dst.RouteData, n.privateKey, &route)
+	//errRoute := DecryptStruct(arg.Dst, n.privateKey, &route)
+
+	//decrypt the Operation
+	errOp := DecryptStruct(arg.Op.AESKey, arg.Op.OperationData, n.privateKey, &operation)
+	//errOp := DecryptStruct(arg.Op, n.privateKey, &operation)
+
 
 	if errOp != nil || errRoute != nil {
 		Log.Println("RPC - Decrypting Message Failed")
@@ -118,7 +177,9 @@ func (n *Node) Incoming(arg Message, reply *bool) error {
 
 	case GETFILE:
 		var data Data
-		errData := decryptStruct(arg.Data, n.privateKey, &data)
+		//decrypt the data
+		errData := DecryptStruct(arg.Data.AESKey, arg.Data.DataData, n.privateKey, &data)
+		//errData := DecryptStruct(arg.Data, n.privateKey, &data)
 		if errData != nil {
 			Log.Println("RPC - Decrypting Data Failed")
 			return nil
@@ -131,17 +192,22 @@ func (n *Node) Incoming(arg Message, reply *bool) error {
 		}
 
 		data.Data = chunk
-		encData, err := encryptStruct(data, data.PublicKey)
+		aesKey, encData, err := EncryptStruct(data, data.PublicKey)
+		//encData, err := EncryptStruct(data, data.PublicKey)
 		if err != nil {
 			Log.Println("RPC - Encrypting Data Failed")
 			return nil
 		}
 
-		arg.Data = encData
+		arg.Data.DataData = encData
+		arg.Data.AESKey = aesKey
+		//arg.Data = encData
+		//arg.AESKey = easKey
 
 	case END:
 		var data Data
-		errData := decryptStruct(arg.Data, n.dataPrivateKey, &data)
+		errData := DecryptStruct(arg.Data.AESKey, arg.Data.DataData, n.dataPrivateKey, &data)
+		//errData := DecryptStruct(arg.Data, n.dataPrivateKey, &data)
 		if errData != nil {
 			Log.Println("RPC - Encrypting Data Failed")
 			return nil
@@ -159,8 +225,8 @@ func (n *Node) Incoming(arg Message, reply *bool) error {
 	default:
 
 	}
-
 	msg := Message{operation.Next, route.Next, arg.Data}
+	//msg := Message{operation.Next, route.Next, arg.Data}
 	rpcConn, err := rpc.Dial("tcp", route.Dst)
 	defer rpcConn.Close()
 	if err != nil {

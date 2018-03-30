@@ -39,11 +39,13 @@ func (d *Downloader) getFile(file FileInfo) error {
 			data.Data.Index = index
 			data.PublicKey = d.node.dataPublicKey
 			route, operation := d.generatePath(node, randomNode)
-			encrpytedData, err := encryptStruct(data, node.PublicKey)
+			aesKey, encrpytedData, err := EncryptStruct(data, node.PublicKey)
 			if err != nil {
 				Log.Fatal("GetFile - Encrypting Data Failed")
 			}
-			message := Message{operation.Next, route.Next, encrpytedData}
+			dataBox:= DataBox{aesKey, encrpytedData}
+			message := Message{operation.Next, route.Next, dataBox}
+			//message := Message{operation.Next, route.Next, encrpytedData}
 
 			reply := false
 			conn, _ := rpc.Dial("tcp", route.Dst)
@@ -59,11 +61,15 @@ func (d *Downloader) getFile(file FileInfo) error {
 	data.Data.Index = index
 	data.PublicKey = d.node.dataPublicKey
 	route, operation := d.generatePath(node, randomNode)
-	encrpytedData, err := encryptStruct(data, node.PublicKey)
+	aesKey, encrpytedData, err := EncryptStruct(data, node.PublicKey)
+	//encrpytedData, err := EncryptStruct(data, node.PublicKey)
 	if err != nil {
 		Log.Fatal("GetFile - Encrypting Data Failed")
 	}
-	message := Message{operation.Next, route.Next, encrpytedData}
+	dataBox := DataBox{aesKey,encrpytedData}
+	message := Message{operation.Next, route.Next, dataBox}
+
+	//message := Message{aesKey,operation.Next, route.Next, encrpytedData}
 
 	reply := false
 	conn, _ := rpc.Dial("tcp", route.Dst)
@@ -88,6 +94,18 @@ func (d *Downloader) getFile(file FileInfo) error {
 }
 
 func (d *Downloader) generatePath(dst NodeInfo, randomNode []NodeInfo) (Route, Operation) {
+
+
+	//route := Route{
+	//	Dst:  d.node.listener.Addr().String(),
+	//	NextMsg: nextMsg,
+	//}
+	//
+	//operation := Operation{
+	//	Op:   END,
+	//	NextMsg: nextMsg,
+	//}
+
 	route := Route{
 		Dst:  d.node.listener.Addr().String(),
 		Next: nil,
@@ -100,21 +118,27 @@ func (d *Downloader) generatePath(dst NodeInfo, randomNode []NodeInfo) (Route, O
 
 	layerMessage(&route, &operation, randomNode)
 
-	next, err := encryptStruct(route, dst.PublicKey)
+	aesKey, next, err := EncryptStruct(route, dst.PublicKey)
 	if err != nil {
 		Log.Fatal("GetFile - Encrypting Data Failed")
 	}
 
 	route.Dst = dst.Addr
-	route.Next = next
+	route.Next = RouteBox{aesKey, next}
 
-	next, err = encryptStruct(operation, dst.PublicKey)
+	//route.Dst = dst.Addr
+	//route.Next = next
+
+	aesKey, next, err = EncryptStruct(operation, dst.PublicKey)
 	if err != nil {
 		Log.Fatal("GetFile - Encrypting Data Failed")
 	}
 
 	operation.Op = GETFILE
-	operation.Next = next
+	operation.Next = OpBox{aesKey, next}
+
+	//operation.Op = GETFILE
+	//operation.Next = next
 
 	layerMessage(&route, &operation, randomNode)
 
@@ -126,18 +150,25 @@ func layerMessage(route *Route, operation *Operation, randomNode []NodeInfo) {
 	length := len(randomNode)
 	for i := 1; i < MinNumRoute; i++ {
 		n := rand.Int() % length
-		encryptedRoute, err := encryptStruct(*route, randomNode[n].PublicKey)
+		aesKey, encryptedRoute, err := EncryptStruct(*route, randomNode[n].PublicKey)
 		if err != nil {
 			Log.Fatal("GetFile - Encrypting Data Failed")
 		}
-		route.Next = encryptedRoute
-		route.Dst = randomNode[n].Addr
+		routeBox:= RouteBox{aesKey,encryptedRoute}
+		route.Next = routeBox
 
-		encryptedOperation, err := encryptStruct(*operation, randomNode[n].PublicKey)
+		//route.Next = encryptedRoute
+		//route.Dst = randomNode[n].Addr
+
+		aesKey, encryptedOperation, err := EncryptStruct(*operation, randomNode[n].PublicKey)
 		if err != nil {
 			Log.Fatal("GetFile - Encrypting Data Failed")
 		}
-		operation.Next = encryptedOperation
-		operation.Op = ROUTE
+
+		opBox := OpBox{aesKey, encryptedOperation}
+		operation.Next = opBox
+
+		//operation.Next = encryptedOperation
+		//operation.Op = ROUTE
 	}
 }
