@@ -13,7 +13,7 @@ import (
 	"errors"
 )
 
-func encryptStruct(struc interface{}, pubBytes []byte) ([]byte, []byte, error) {
+func EncryptStruct(struc interface{}, pubBytes []byte) ([]byte, []byte, error) {
 
 	data, err := json.Marshal(struc)
 	checkError(err)
@@ -46,13 +46,13 @@ func encryptStruct(struc interface{}, pubBytes []byte) ([]byte, []byte, error) {
 	label := []byte("orders")
 
 	//rsa.EncryptPKCS1v15(rng,pubKey,cipherText)
-	encryptedAESKey, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pubKey, encryptedData, label)
+	encryptedAESKey, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, pubKey, key, label)
 	checkError(err)
 
 	return encryptedAESKey, encryptedData , nil
 }
 
-func decryptStruct(data []byte, encryptedEosKey []byte, priByte []byte, struc interface{}) error {
+func DecryptStruct(data []byte, encryptedEosKey []byte, priByte []byte, struc interface{}) error {
 
 	//get private key from private key bytes
 	privKey, err := x509.ParsePKCS1PrivateKey(priByte)
@@ -96,7 +96,7 @@ func decryptStruct(data []byte, encryptedEosKey []byte, priByte []byte, struc in
 }
 
 //Generate public and private rsa keys
-func generateKeys() ([]byte, []byte) {
+func GenerateKeys() ([]byte, []byte) {
 
 	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	checkError(err)
