@@ -162,7 +162,7 @@ func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
 func Sync(s Server) {
 	for {
 		SyncServers(s)
-		time.Sleep(2 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }
 
@@ -174,9 +174,9 @@ func SyncServers(s Server) {
 	for scanner.Scan() {
 		if scanner.Text() != s.ServerAddr {
 			client, err := rpc.Dial("tcp", scanner.Text())
-			defer client.Close()
 			if err != nil {
-				continue
+				fmt.Println("server at " + scanner.Text() + " is down")
+				break
 			}
 
 			var nodes *[]NodeInfo
