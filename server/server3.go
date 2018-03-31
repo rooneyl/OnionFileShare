@@ -159,8 +159,10 @@ func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
 }
 
 func SyncServers(s Server) {
+
 	f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_RDONLY, 0644)
 	scanner := bufio.NewScanner(f)
+
 	for scanner.Scan() {
 		if scanner.Text() != s.ServerAddr {
 			client, err := rpc.Dial("tcp", scanner.Text())
@@ -169,14 +171,22 @@ func SyncServers(s Server) {
 				continue
 			}
 
-			var nodes []NodeInfo
+			var nodes *[]NodeInfo
 			err = client.Call("Server.GetNode", 1000, &nodes)
 			if err != nil {
 				continue
 			}
-			// TODO FOR RANGE OF ALL NODES IN nodes IF S.NODES DOES NOT CONTAIN THE NODE ADD IT
+
+			for _, nodeInfo := range *nodes {
+				if _, exist := s.Nodes[nodeInfo.Addr]; exist {
+				} else {
+					//TODO INITIALIZE TTL PROPERLY
+					s.Nodes[nodeInfo.Addr] = NodeStatus{Node: nodeInfo, time: time.Now()}
+				}
+			}
 		}
 	}
+
 	err = f.Close()
 	checkError(err)
 
