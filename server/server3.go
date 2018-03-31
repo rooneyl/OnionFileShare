@@ -93,6 +93,7 @@ func main() {
 
 	Log.Printf("Running at [%s]", server.ServerAddr)
 	go rpc.Accept(listener)
+	go Sync(server)
 
 	for {
 		time.Sleep(time.Second * 5)
@@ -158,6 +159,13 @@ func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
 	return nil
 }
 
+func Sync(s Server) {
+	for {
+		SyncServers(s)
+		time.Sleep(2 * time.Second)
+	}
+}
+
 func SyncServers(s Server) {
 
 	f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_RDONLY, 0644)
@@ -179,6 +187,7 @@ func SyncServers(s Server) {
 
 			for _, nodeInfo := range *nodes {
 				if _, exist := s.Nodes[nodeInfo.Addr]; exist {
+					// node already exists in s.Nodes, do nothing
 				} else {
 					//TODO INITIALIZE TTL PROPERLY
 					s.Nodes[nodeInfo.Addr] = NodeStatus{Node: nodeInfo, time: time.Now()}
