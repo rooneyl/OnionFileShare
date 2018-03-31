@@ -184,6 +184,7 @@ func SyncServers(s Server) {
 			if err != nil {
 				continue
 			}
+			fmt.Println(nodes)
 
 			for _, nodeInfo := range *nodes {
 				if _, exist := s.Nodes[nodeInfo.Addr]; exist {
@@ -193,7 +194,6 @@ func SyncServers(s Server) {
 					s.Nodes[nodeInfo.Addr] = NodeStatus{Node: nodeInfo, time: time.Now()}
 				}
 			}
-			fmt.Println(s.Nodes)
 		}
 	}
 

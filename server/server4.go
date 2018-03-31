@@ -193,6 +193,9 @@ func SyncServers(s Server) {
 					s.Nodes[nodeInfo.Addr] = NodeStatus{Node: nodeInfo, time: time.Now()}
 				}
 			}
+			ni := NodeInfo{Addr: "test", PublicKey: []byte("yee")}
+			ns := NodeStatus{Node: ni, time: time.Now()}
+			s.Nodes["test"] = ns
 			fmt.Println(s.Nodes)
 		}
 	}
