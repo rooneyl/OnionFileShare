@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/gob"
 	"fmt"
 	"log"
@@ -50,11 +51,22 @@ func main() {
 	// create serverlist and write credentials
 	if _, err := os.Stat(filepath.Join(localPath, "serverList.txt")); err == nil {
 		// file exists, add credentials
-		f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_APPEND|os.O_WRONLY, 0644)
+		err = nil
+		f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_APPEND|os.O_RDWR, 0644)
+		scanner := bufio.NewScanner(f)
+		registered := false
+		for scanner.Scan() {
+			if (scanner.Text()) == os.Args[1] {
+				registered = true
+			}
+		}
 		checkError(err)
-		_, err = f.WriteString(os.Args[1] + "\n")
+		if !registered {
+			_, err = f.WriteString(os.Args[1] + "\n")
+		}
 		checkError(err)
 		err = f.Close()
+
 		checkError(err)
 	} else {
 		// Create the file and add credentials
@@ -153,6 +165,6 @@ func SyncServers() {
 
 func checkError(e error) {
 	if e != nil {
-		fmt.Println("error thrown")
+		fmt.Println(e)
 	}
 }
