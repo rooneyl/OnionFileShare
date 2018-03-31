@@ -37,12 +37,12 @@ type Server struct {
 }
 
 //var filesize = int64(340)
+var localPath = "./serverfile/"
 
 func main() {
 	gob.Register(&FileInfo{})
 	gob.Register(&NodeInfo{})
 	var server Server
-	localPath := "./serverfile/"
 
 	if len(os.Args) != 2 {
 		Log.Fatal("Usage - go run server.go ip:port")
@@ -158,8 +158,27 @@ func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
 	return nil
 }
 
-func SyncServers() {
-	//for _, server := range servers
+func SyncServers(s Server) {
+	f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_RDONLY, 0644)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		if scanner.Text() != s.ServerAddr {
+			client, err := rpc.Dial("tcp", scanner.Text())
+			defer client.Close()
+			if err != nil {
+				continue
+			}
+
+			var nodes []NodeInfo
+			err = client.Call("Server.GetNode", 1000, &nodes)
+			if err != nil {
+				continue
+			}
+			// TODO FOR RANGE OF ALL NODES IN nodes IF S.NODES DOES NOT CONTAIN THE NODE ADD IT
+		}
+	}
+	err = f.Close()
+	checkError(err)
 
 }
 
