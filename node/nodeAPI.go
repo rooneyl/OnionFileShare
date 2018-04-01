@@ -2,7 +2,6 @@ package node
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -34,7 +33,7 @@ func Run(localAddr string, serverAddr string, debug bool) (NodeAPI, error) {
 }
 
 func (n *NodeAPI) Search(fileName string) ([]FileInfo, error) {
-	fmt.Println("in nodeAPI Search, fileName: ", fileName)
+	//fmt.Println("in nodeAPI Search, fileName: ", fileName)
 	var fileInfo []FileInfo
 	err := n.node.rpcConn.Call("Server.Search", fileName, &fileInfo)
 	if err != nil {
@@ -60,6 +59,14 @@ func (n *NodeAPI) GetFile(file FileInfo) error {
 
 func (n *NodeAPI) ChangeDirectory(path string) error {
 	return changeDir(path)
+}
+
+func (n *NodeAPI) GetPath() string {
+	return getDir()
+}
+
+func (n *NodeAPI) ListDirs() ([]string, error) {
+	return getDirs()
 }
 
 func (n *NodeAPI) Disconnect() error {

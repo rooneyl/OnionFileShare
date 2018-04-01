@@ -43,7 +43,7 @@ func (d *Downloader) getFile(file FileInfo) error {
 			if err != nil {
 				Log.Fatal("GetFile - Encrypting Data Failed")
 			}
-			dataBox:= DataBox{aesKey, encrpytedData}
+			dataBox := DataBox{aesKey, encrpytedData}
 			message := Message{operation.Next, route.Next, dataBox}
 			//message := Message{operation.Next, route.Next, encrpytedData}
 
@@ -66,7 +66,7 @@ func (d *Downloader) getFile(file FileInfo) error {
 	if err != nil {
 		Log.Fatal("GetFile - Encrypting Data Failed")
 	}
-	dataBox := DataBox{aesKey,encrpytedData}
+	dataBox := DataBox{aesKey, encrpytedData}
 	message := Message{operation.Next, route.Next, dataBox}
 
 	//message := Message{aesKey,operation.Next, route.Next, encrpytedData}
@@ -95,7 +95,6 @@ func (d *Downloader) getFile(file FileInfo) error {
 
 func (d *Downloader) generatePath(dst NodeInfo, randomNode []NodeInfo) (Route, Operation) {
 
-
 	//route := Route{
 	//	Dst:  d.node.listener.Addr().String(),
 	//	NextMsg: nextMsg,
@@ -106,15 +105,11 @@ func (d *Downloader) generatePath(dst NodeInfo, randomNode []NodeInfo) (Route, O
 	//	NextMsg: nextMsg,
 	//}
 
-	route := Route{
-		Dst:  d.node.listener.Addr().String(),
-		Next: nil,
-	}
+	route := Route{}
+	route.Dst = d.node.listener.Addr().String()
 
-	operation := Operation{
-		Op:   END,
-		Next: nil,
-	}
+	operation := Operation{}
+	operation.Op = END
 
 	layerMessage(&route, &operation, randomNode)
 
@@ -154,7 +149,7 @@ func layerMessage(route *Route, operation *Operation, randomNode []NodeInfo) {
 		if err != nil {
 			Log.Fatal("GetFile - Encrypting Data Failed")
 		}
-		routeBox:= RouteBox{aesKey,encryptedRoute}
+		routeBox := RouteBox{aesKey, encryptedRoute}
 		route.Next = routeBox
 
 		//route.Next = encryptedRoute

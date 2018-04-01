@@ -86,7 +86,7 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 	size := int64(math.Ceil(float64(fi.Size()) / float64(length)))
 	offset := int64(index) * size
 	if (offset + size) > fi.Size() {
-		size = size - (offset + size - fi.Size())
+		size = fi.Size() - offset
 	}
 	data := make([]byte, size)
 	n, err := f.ReadAt(data, offset)
@@ -154,4 +154,20 @@ func changeDir(path string) error {
 
 func getDir() string {
 	return Path
+}
+
+func getDirs() ([]string, error) {
+	var dirs []string
+	files, err := ioutil.ReadDir(Path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		//fmt.Println(file.Name())
+		if file.IsDir() {
+			dirs = append(dirs, file.Name())
+		}
+	}
+	return dirs, err
 }

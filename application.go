@@ -63,19 +63,19 @@ func search() {
 	}
 
 	//fmt.Printf("%#v\n", client)
-	fileInfo, err := client.Search(fname)
+	fileInfos, err := client.Search(fname)
 	if err != nil {
 		fmt.Println("search error: ", err)
 		return
 	}
-	if fileInfo == nil || len(fileInfo) == 0 {
+	if fileInfos == nil || len(fileInfos) == 0 {
 		fmt.Printf("File [%s] Does Not Exists on the Network\n", fname)
 		return
 	}
 
 	fmt.Println("Select File to Download or Press '0' to Return")
-	for i, file := range fileInfo {
-		fmt.Printf("File [%d] - Size : [%d]\n", i+1, file.Size)
+	for i, file := range fileInfos {
+		fmt.Printf("[%d] File [%s] - Size [%d]\n", i+1, file.Fname, file.Size)
 	}
 
 	for {
@@ -85,17 +85,35 @@ func search() {
 			continue
 		}
 
-		if selection > len(fileInfo) || selection < 0 {
+		if selection == 0 {
+			return
+		}
+
+		if selection > len(fileInfos) || selection < 0 {
 			fmt.Println("Invalid Input. Try Again")
 			continue
 		}
 
 		//TODO
-		err = client.GetFile(fileInfo[selection])
+		err = client.GetFile(fileInfos[selection-1])
+		if err != nil {
+			fmt.Println("GetFile error: ", err)
+		}
+		fmt.Printf("File [%s] downloaded into current directory: [%s]\n", fname, client.GetPath())
 	}
 }
 
 func changeDir() {
+	fmt.Printf("Current Path: [%s]\n", client.GetPath())
+	dirs, err := client.ListDirs()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, dir := range dirs {
+		fmt.Println("> ", dir)
+	}
+
 	fmt.Println("Enter Desired Path or Press '0' to Return")
 	for {
 		path := getInput()
