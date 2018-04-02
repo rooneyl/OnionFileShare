@@ -9,7 +9,6 @@ import (
 	"crypto/aes"
 	"io"
 	"crypto/cipher"
-	"log"
 	"errors"
 )
 
@@ -53,7 +52,10 @@ func decryptAESKey(encAESKey []byte, privBytes []byte) ([]byte, error) {
 	return aesKey, err
 }
 
-func encryptData(aesKey []byte, data []byte) ([]byte, error) {
+func encryptData(aesKey []byte, struc interface{}) ([]byte, error) {
+	data, err := json.Marshal(struc)
+	checkError(err)
+
 	block, err := aes.NewCipher(aesKey)
 	checkError(err)
 
