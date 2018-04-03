@@ -115,7 +115,6 @@ func (n *Node) Incoming(msg Message, reply *bool) error {
 }
 
 func (n *Node) Search(fileName string, reply *FileInfo) error {
-	Log.Printf("RPC - Search...[%s]\n", fileName)
 	fileInfo, err := searchFile(fileName)
 	*reply = fileInfo
 	return err
@@ -162,10 +161,11 @@ func end(node *Node, data EncryptedMessage) {
 	err = writeChunk(dataMessage.Finfo, dataMessage.File)
 	if err != nil {
 		Log.Println("Node - Failed [writeChunk]")
+		Log.Println(err)
 		return
 	}
 
-	node.nodeAPI.downloader.requestChunk(dataMessage.File.Index)
+	node.nodeAPI.downloader.receivedChunk(dataMessage.File.Index)
 }
 
 func decrypting(encryptedMessage EncryptedMessage, rsaPrivate []byte, v interface{}) error {

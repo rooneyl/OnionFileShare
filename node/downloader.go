@@ -33,6 +33,7 @@ func (d *Downloader) getFile(file FileInfo) error {
 	d.fileStatus = make([]bool, length)
 	d.fileNode = file.Nodes
 	d.file = file
+	writeFile(file)
 
 	d.updateRandomNode()
 	for i := 0; i < len(d.fileStatus); i++ {
@@ -43,6 +44,7 @@ func (d *Downloader) getFile(file FileInfo) error {
 	if err != nil {
 		return err
 	}
+	doneWriting(file)
 
 	return nil
 }
@@ -133,7 +135,7 @@ func (d *Downloader) generateEncryptedMessage(rsa []byte, struc interface{}) Enc
 
 func (d *Downloader) downloadStatus() error {
 	for i := 0; i < MaxNumFileRequest; i++ {
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 3)
 
 		d.mutex.Lock()
 		complete := true
