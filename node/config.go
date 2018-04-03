@@ -8,7 +8,7 @@ import (
 var Log *log.Logger
 
 const (
-	MinNumRoute       int           = 3 // OneWay
+	MinNumRoute       int           = 1 // OneWay
 	MaxNumFileRequest int           = 5
 	HeartBeatRate     time.Duration = 600
 	FileChunkSize     int           = 100

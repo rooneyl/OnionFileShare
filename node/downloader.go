@@ -34,6 +34,7 @@ func (d *Downloader) getFile(file FileInfo) error {
 	d.fileNode = file.Nodes
 	d.file = file
 
+	d.updateRandomNode()
 	for i := 0; i < len(d.fileStatus); i++ {
 		d.requestChunk(i)
 	}
@@ -78,40 +79,34 @@ func (d *Downloader) requestChunk(index int) error {
 }
 
 func (d *Downloader) layerMessage(encryptedMessage EncryptedMessage, selectedNode NodeInfo) (EncryptedMessage, NodeInfo) {
-	var routingNode NodeInfo
 	var routingMessage DecryptedRouting
 
-	routingMessage = DecryptedRouting{
-		Operation:   ROUTING,
-		Destination: d.nodeAPI.localAddr,
-		Next:        encryptedMessage,
-	}
-	encryptedMessage = d.generateEncryptedMessage(d.nodeAPI.node.rsaPublic, routingMessage)
-
+	routingNode := d.nodeAPI.node.nodeInfo
 	for i := 0; i < MinNumRoute; i++ {
-		routingNode = d.randomNode[rand.Int()%len(d.randomNode)]
 		routingMessage = DecryptedRouting{
 			Operation:   ROUTING,
 			Destination: routingNode.Addr,
 			Next:        encryptedMessage,
 		}
+		routingNode = d.randomNode[rand.Int()%len(d.randomNode)]
 		encryptedMessage = d.generateEncryptedMessage(routingNode.PublicKey, routingMessage)
 	}
 
 	routingMessage = DecryptedRouting{
 		Operation:   GETFILE,
-		Destination: selectedNode.Addr,
+		Destination: routingNode.Addr,
 		Next:        encryptedMessage,
 	}
 	encryptedMessage = d.generateEncryptedMessage(selectedNode.PublicKey, routingMessage)
+	routingNode = selectedNode
 
 	for i := 0; i < MinNumRoute; i++ {
-		routingNode = d.randomNode[rand.Int()%len(d.randomNode)]
 		routingMessage = DecryptedRouting{
 			Operation:   ROUTING,
 			Destination: routingNode.Addr,
 			Next:        encryptedMessage,
 		}
+		routingNode = d.randomNode[rand.Int()%len(d.randomNode)]
 		encryptedMessage = d.generateEncryptedMessage(routingNode.PublicKey, routingMessage)
 	}
 
@@ -138,7 +133,7 @@ func (d *Downloader) generateEncryptedMessage(rsa []byte, struc interface{}) Enc
 
 func (d *Downloader) downloadStatus() error {
 	for i := 0; i < MaxNumFileRequest; i++ {
-		time.Sleep(time.Second * 3)
+		time.Sleep(time.Second * 10)
 
 		d.mutex.Lock()
 		complete := true
@@ -188,6 +183,8 @@ func (d *Downloader) updateRandomNode() error {
 	if err != nil {
 		return err
 	}
+
+	Log.Printf("Downloader - Updated RandomNodes, numNodes = [%d]", len(d.randomNode))
 	return nil
 }
 

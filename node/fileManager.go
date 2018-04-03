@@ -3,7 +3,6 @@ package node
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"math"
@@ -89,8 +88,8 @@ func getChunk(index int, length int, fname string) (Chunk, error) {
 		size = fi.Size() - offset
 	}
 	data := make([]byte, size)
-	n, err := f.ReadAt(data, offset)
-	fmt.Println("chunk", index, "( size", size, ") read", n, "bytes :", offset, "to", (offset + int64(n)))
+	_, err = f.ReadAt(data, offset)
+	// fmt.Println("chunk", index, "( size", size, ") read", n, "bytes :", offset, "to", (offset + int64(n)))
 	if err == nil {
 		chunk.Index = index
 		chunk.Length = length
@@ -112,8 +111,8 @@ func writeChunk(finfo FileInfo, chunk Chunk) error {
 
 	size := int64(math.Ceil(float64(finfo.Size) / float64(chunk.Length)))
 	offset := int64(chunk.Index) * size
-	n, err := tmpf.WriteAt(chunk.Data, offset)
-	fmt.Println("chunk", chunk.Index, "wrote", n, "bytes:", offset, "to", (offset + int64(n)))
+	_, err = tmpf.WriteAt(chunk.Data, offset)
+	// fmt.Println("chunk", chunk.Index, "wrote", n, "bytes:", offset, "to", (offset + int64(n)))
 	//fmt.Println("chunk", chunk.Index, ":", chunk.Data)
 	return err
 }
@@ -122,7 +121,7 @@ func hashFile(f *os.File) (string, int64, error) {
 	h := md5.New()
 	n, err := io.Copy(h, f)
 	hash := hex.EncodeToString(h.Sum(nil))
-	fmt.Println(f.Name(), " ", hash)
+	// fmt.Println(f.Name(), " ", hash)
 	return hash, n, err
 }
 
@@ -139,7 +138,7 @@ func searchFile(fname string) (FileInfo, error) {
 		fileInfo.Fname = fname
 		fileInfo.Size = int(size)
 		fileInfo.Hash = hash
-		fmt.Println("File size", fileInfo.Size, "bytes")
+		// fmt.Println("File size", fileInfo.Size, "bytes")
 	}
 	return fileInfo, err
 }

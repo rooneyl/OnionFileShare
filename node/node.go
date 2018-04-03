@@ -35,7 +35,7 @@ func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Nod
 	if err != nil {
 		Log.Fatalf("Node - Connecting Server Fail [%s]\n", serverAddr)
 	}
-	Log.Printf("Node - Server Connected [s]\n", serverAddr)
+	Log.Printf("Node - Server Connected [%s]\n", serverAddr)
 
 	publicKey, privateKey := generateRSAKey()
 
@@ -49,7 +49,6 @@ func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Nod
 	}
 
 	go func(connServer *rpc.Client, nodeInfo NodeInfo) {
-		Log.Println("Node - Sending HeartBeat ...")
 		reply := false
 		for {
 			connServer.Call("Server.HeartBeat", nodeInfo, &reply)
@@ -64,9 +63,9 @@ func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Nod
 }
 
 const (
-	ROUTING = iota
-	GETFILE
-	END
+	ROUTING string = "ROUTING"
+	GETFILE string = "GETFILE"
+	END     string = "END"
 )
 
 type Message struct {
@@ -80,7 +79,7 @@ type EncryptedMessage struct {
 }
 
 type DecryptedRouting struct {
-	Operation   int
+	Operation   string
 	Destination string
 	Next        EncryptedMessage
 }
@@ -93,12 +92,13 @@ type DecryptedData struct {
 
 func (n *Node) Incoming(msg Message, reply *bool) error {
 	Log.Println("Node - Received Incoming Message")
-
 	var routingMessage DecryptedRouting
 	err := decrypting(msg.Routing, n.rsaPrivate, &routingMessage)
 	if err != nil {
 		return nil
 	}
+
+	Log.Printf("Node - Received OP = [%s]", routingMessage.Operation)
 
 	switch routingMessage.Operation {
 	case GETFILE:
@@ -112,6 +112,13 @@ func (n *Node) Incoming(msg Message, reply *bool) error {
 	}
 
 	return nil
+}
+
+func (n *Node) Search(fileName string, reply *FileInfo) error {
+	Log.Printf("RPC - Search...[%s]\n", fileName)
+	fileInfo, err := searchFile(fileName)
+	*reply = fileInfo
+	return err
 }
 
 func getFile(node *Node, routing DecryptedRouting, data EncryptedMessage) {
@@ -139,7 +146,7 @@ func getFile(node *Node, routing DecryptedRouting, data EncryptedMessage) {
 }
 
 func routing(node *Node, routing DecryptedRouting, data EncryptedMessage) {
-	Log.Println("Node - Processing Routing")
+	Log.Printf("Node - Processing Routing to [%s]", routing.Destination)
 	sendMessage(routing.Destination, routing.Next, data)
 }
 
@@ -164,7 +171,7 @@ func end(node *Node, data EncryptedMessage) {
 func decrypting(encryptedMessage EncryptedMessage, rsaPrivate []byte, v interface{}) error {
 	aesKey, err := decryptAESKey(encryptedMessage.ESA, rsaPrivate)
 	if err != nil {
-		Log.Println("Node - Decrypting AES Failed")
+		Log.Fatal("Node - Decrypting AES Failed")
 		return err
 	}
 
@@ -178,8 +185,12 @@ func decrypting(encryptedMessage EncryptedMessage, rsaPrivate []byte, v interfac
 }
 
 func sendMessage(dst string, routing EncryptedMessage, data EncryptedMessage) {
-	Log.Println("Node - Sending Message to Next Node")
-	conn, _ := rpc.Dial("tcp", dst)
+	Log.Printf("Node - Sending Message to [%s]", dst)
+	conn, err := rpc.Dial("tcp", dst)
+	if err != nil {
+		Log.Println("Node - Sending Message Failed")
+		return
+	}
 	defer conn.Close()
 
 	reply := false

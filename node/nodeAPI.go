@@ -2,7 +2,6 @@ package node
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -32,7 +31,6 @@ func Run(localAddr string, serverAddr string, debug bool) (NodeAPI, error) {
 }
 
 func (n *NodeAPI) Search(fileName string) ([]FileInfo, error) {
-	fmt.Println("in nodeAPI Search, fileName: ", fileName)
 	var fileInfo []FileInfo
 	err := n.node.connServer.Call("Server.Search", fileName, &fileInfo)
 	if err != nil {
