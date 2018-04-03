@@ -54,6 +54,16 @@ func (n *NodeAPI) ChangeDirectory(path string) error {
 	return changeDir(path)
 }
 
+func (n *NodeAPI) GetPath() string {
+	return getDir()
+
+}
+
+func (n *NodeAPI) ListDirs() ([]string, error) {
+	return getDirs()
+
+}
+
 func (n *NodeAPI) Disconnect() error {
 	err := n.node.listener.Close()
 	if err != nil {
