@@ -1,169 +1,207 @@
 package node
 
 import (
+	"errors"
+	"fmt"
 	"math/rand"
 	"net/rpc"
+	"sync"
 	"time"
 )
 
 type Downloader struct {
-	node *Node
+	fileStatus []bool
+	fileNode   []NodeInfo
+	file       FileInfo
+
+	mutex      *sync.Mutex
+	randomNode []NodeInfo
+	nodeAPI    *NodeAPI
+}
+
+func StartDownloader(nodeAPI *NodeAPI) *Downloader {
+	downloader := Downloader{
+		nodeAPI: nodeAPI,
+		mutex:   &sync.Mutex{},
+	}
+	rand.Seed(time.Now().Unix())
+	return &downloader
 }
 
 func (d *Downloader) getFile(file FileInfo) error {
-	var randomNode []NodeInfo
-	err := d.node.rpcConn.Call("Server.GetNode", MinNumRoute*10, &randomNode)
+	length := file.Size/FileChunkSize + 1
+	d.fileStatus = make([]bool, length)
+	d.fileNode = file.Nodes
+	d.file = file
+
+	for i := 0; i < len(d.fileStatus); i++ {
+		d.requestChunk(i)
+	}
+
+	err := d.downloadStatus()
 	if err != nil {
 		return err
 	}
 
-	numReq := file.Size/FileChunkSize + 1
-	reqPerNode := len(file.Nodes) / numReq
+	return nil
+}
 
-	writeFile(file)
-	d.node.fileStatus[file.Fname] = make([]byte, numReq)
+func (d *Downloader) requestChunk(index int) error {
+	selectedNode := d.fileNode[rand.Int()%len(d.fileNode)]
+	Log.Printf("Downloader - Requesting Chunk[%d] from [%s]\n", index, selectedNode.Addr)
 
-	var data Data
-	var chunkInfo Chunk
-	chunkInfo.Length = numReq
-	data.Data = chunkInfo
-	data.FInfo = file
-
-	Log.Printf("GetFile - FileName - [%s], FileSize - [%d]", file.Fname, file.Size)
-	Log.Printf("        - ChunkLength - [%d], NumReqPerNode - [%d]", numReq, reqPerNode)
-
-	index := 0
-	for _, node := range file.Nodes {
-		for i := 0; i < reqPerNode; i++ {
-			Log.Printf("GetFile - Requesting [%d/%d]", index, numReq)
-			data.Data.Index = index
-			data.PublicKey = d.node.dataPublicKey
-			route, operation := d.generatePath(node, randomNode)
-			aesKey, encrpytedData, err := EncryptStruct(data, node.PublicKey)
-			if err != nil {
-				Log.Fatal("GetFile - Encrypting Data Failed")
-			}
-			dataBox := DataBox{aesKey, encrpytedData}
-			message := Message{operation.Next, route.Next, dataBox}
-			//message := Message{operation.Next, route.Next, encrpytedData}
-
-			reply := false
-			conn, _ := rpc.Dial("tcp", route.Dst)
-			conn.Call("Node.Incoming", message, &reply)
-			conn.Close()
-
-			index++
-		}
+	// Data
+	dataMessage := DecryptedData{
+		RSA:   d.nodeAPI.node.rsaPublic,
+		File:  Chunk{index, len(d.fileStatus), nil},
+		Finfo: d.file,
 	}
+	encryptedData := d.generateEncryptedMessage(selectedNode.PublicKey, dataMessage)
 
-	Log.Printf("GetFile - Requesting [%d/%d]", index, numReq)
-	node := file.Nodes[0]
-	data.Data.Index = index
-	data.PublicKey = d.node.dataPublicKey
-	route, operation := d.generatePath(node, randomNode)
-	aesKey, encrpytedData, err := EncryptStruct(data, node.PublicKey)
-	//encrpytedData, err := EncryptStruct(data, node.PublicKey)
+	// Routing
+	routingMessage := DecryptedRouting{
+		Operation: END,
+	}
+	encryptedRouting := d.generateEncryptedMessage(d.nodeAPI.node.rsaPublic, routingMessage)
+	encryptedRouting, routingInfo := d.layerMessage(encryptedRouting, selectedNode)
+
+	message := Message{encryptedRouting, encryptedData}
+	conn, err := rpc.Dial("tcp", routingInfo.Addr)
 	if err != nil {
-		Log.Fatal("GetFile - Encrypting Data Failed")
+		return err
 	}
-	dataBox := DataBox{aesKey, encrpytedData}
-	message := Message{operation.Next, route.Next, dataBox}
-
-	//message := Message{aesKey,operation.Next, route.Next, encrpytedData}
+	defer conn.Close()
 
 	reply := false
-	conn, _ := rpc.Dial("tcp", route.Dst)
 	conn.Call("Node.Incoming", message, &reply)
-	conn.Close()
+	return nil
+}
 
-	for {
-		time.Sleep(10 * time.Second)
+func (d *Downloader) layerMessage(encryptedMessage EncryptedMessage, selectedNode NodeInfo) (EncryptedMessage, NodeInfo) {
+	var routingNode NodeInfo
+	var routingMessage DecryptedRouting
+
+	routingMessage = DecryptedRouting{
+		Operation:   ROUTING,
+		Destination: d.nodeAPI.localAddr,
+		Next:        encryptedMessage,
+	}
+	encryptedMessage = d.generateEncryptedMessage(d.nodeAPI.node.rsaPublic, routingMessage)
+
+	for i := 0; i < MinNumRoute; i++ {
+		routingNode = d.randomNode[rand.Int()%len(d.randomNode)]
+		routingMessage = DecryptedRouting{
+			Operation:   ROUTING,
+			Destination: routingNode.Addr,
+			Next:        encryptedMessage,
+		}
+		encryptedMessage = d.generateEncryptedMessage(routingNode.PublicKey, routingMessage)
+	}
+
+	routingMessage = DecryptedRouting{
+		Operation:   GETFILE,
+		Destination: selectedNode.Addr,
+		Next:        encryptedMessage,
+	}
+	encryptedMessage = d.generateEncryptedMessage(selectedNode.PublicKey, routingMessage)
+
+	for i := 0; i < MinNumRoute; i++ {
+		routingNode = d.randomNode[rand.Int()%len(d.randomNode)]
+		routingMessage = DecryptedRouting{
+			Operation:   ROUTING,
+			Destination: routingNode.Addr,
+			Next:        encryptedMessage,
+		}
+		encryptedMessage = d.generateEncryptedMessage(routingNode.PublicKey, routingMessage)
+	}
+
+	return encryptedMessage, routingNode
+}
+
+func (d *Downloader) generateEncryptedMessage(rsa []byte, struc interface{}) EncryptedMessage {
+	aes := generateAESKey()
+
+	encryptedByte, err := encryptData(aes, struc)
+	if err != nil {
+		Log.Fatal("Downloader - Encryption Failed")
+	}
+
+	encryptedESA, err := encryptAESKey(aes, rsa)
+	if err != nil {
+		Log.Fatal("Downloader - Encryption Failed")
+	}
+
+	encryptedMessage := EncryptedMessage{encryptedESA, encryptedByte}
+
+	return encryptedMessage
+}
+
+func (d *Downloader) downloadStatus() error {
+	for i := 0; i < MaxNumFileRequest; i++ {
+		time.Sleep(time.Second * 3)
+
+		d.mutex.Lock()
 		complete := true
-		for _, status := range d.node.fileStatus[file.Fname] {
-			if status == 0 {
+		counter := 0
+		for _, status := range d.fileStatus {
+			if status == false {
 				complete = false
-				break
+			} else {
+				counter++
 			}
 		}
+		d.mutex.Unlock()
 
 		if complete {
-			_, err := doneWriting(file)
+			return nil
+		}
+
+		err := d.updateRandomNode()
+		if err != nil {
 			return err
 		}
-	}
-}
 
-func (d *Downloader) generatePath(dst NodeInfo, randomNode []NodeInfo) (Route, Operation) {
-
-	//route := Route{
-	//	Dst:  d.node.listener.Addr().String(),
-	//	NextMsg: nextMsg,
-	//}
-	//
-	//operation := Operation{
-	//	Op:   END,
-	//	NextMsg: nextMsg,
-	//}
-
-	route := Route{}
-	route.Dst = d.node.listener.Addr().String()
-
-	operation := Operation{}
-	operation.Op = END
-
-	layerMessage(&route, &operation, randomNode)
-
-	aesKey, next, err := EncryptStruct(route, dst.PublicKey)
-	if err != nil {
-		Log.Fatal("GetFile - Encrypting Data Failed")
-	}
-
-	route.Dst = dst.Addr
-	route.Next = RouteBox{aesKey, next}
-
-	//route.Dst = dst.Addr
-	//route.Next = next
-
-	aesKey, next, err = EncryptStruct(operation, dst.PublicKey)
-	if err != nil {
-		Log.Fatal("GetFile - Encrypting Data Failed")
-	}
-
-	operation.Op = GETFILE
-	operation.Next = OpBox{aesKey, next}
-
-	//operation.Op = GETFILE
-	//operation.Next = next
-
-	layerMessage(&route, &operation, randomNode)
-
-	return route, operation
-}
-
-func layerMessage(route *Route, operation *Operation, randomNode []NodeInfo) {
-	rand.Seed(time.Now().Unix())
-	length := len(randomNode)
-	for i := 1; i < MinNumRoute; i++ {
-		n := rand.Int() % length
-		aesKey, encryptedRoute, err := EncryptStruct(*route, randomNode[n].PublicKey)
+		err = d.updateFileNode()
 		if err != nil {
-			Log.Fatal("GetFile - Encrypting Data Failed")
-		}
-		routeBox := RouteBox{aesKey, encryptedRoute}
-		route.Next = routeBox
-
-		//route.Next = encryptedRoute
-		//route.Dst = randomNode[n].Addr
-
-		aesKey, encryptedOperation, err := EncryptStruct(*operation, randomNode[n].PublicKey)
-		if err != nil {
-			Log.Fatal("GetFile - Encrypting Data Failed")
+			return err
 		}
 
-		opBox := OpBox{aesKey, encryptedOperation}
-		operation.Next = opBox
-
-		//operation.Next = encryptedOperation
-		//operation.Op = ROUTE
+		for i, status := range d.fileStatus {
+			if !status {
+				d.requestChunk(i)
+			}
+		}
+		fmt.Printf("File [%s] downloaded... [%d/%d]\n", d.file.Fname, counter, len(d.fileStatus))
 	}
+
+	return errors.New("DownLoader - Failed to Download File [downloadStatus]")
+}
+
+func (d *Downloader) receivedChunk(index int) {
+	d.mutex.Lock()
+	d.fileStatus[index] = true
+	d.mutex.Unlock()
+}
+
+func (d *Downloader) updateRandomNode() error {
+	err := d.nodeAPI.node.connServer.Call("Server.GetNode", MinNumRoute*10, &d.randomNode)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (d *Downloader) updateFileNode() error {
+	fileInfo, err := d.nodeAPI.Search(d.file.Fname)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range fileInfo {
+		if file.Hash == d.file.Hash {
+			d.fileNode = file.Nodes
+			return nil
+		}
+	}
+	return errors.New("DownLoader - FileNode No Longer Availiable")
 }

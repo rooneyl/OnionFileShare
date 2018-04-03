@@ -2,6 +2,7 @@ package node
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -21,21 +22,19 @@ func Run(localAddr string, serverAddr string, debug bool) (NodeAPI, error) {
 		Log.SetOutput(ioutil.Discard)
 	}
 
-	nodeAPI := NodeAPI{
-		localAddr:  localAddr,
-		serverAddr: serverAddr,
-		node:       StartConnection(localAddr, serverAddr),
-	}
-
-	nodeAPI.downloader = &Downloader{nodeAPI.node}
+	var nodeAPI NodeAPI
+	nodeAPI.localAddr = localAddr
+	nodeAPI.serverAddr = serverAddr
+	nodeAPI.downloader = StartDownloader(&nodeAPI)
+	nodeAPI.node = StartConnection(localAddr, serverAddr, &nodeAPI)
 
 	return nodeAPI, nil
 }
 
 func (n *NodeAPI) Search(fileName string) ([]FileInfo, error) {
-	//fmt.Println("in nodeAPI Search, fileName: ", fileName)
+	fmt.Println("in nodeAPI Search, fileName: ", fileName)
 	var fileInfo []FileInfo
-	err := n.node.rpcConn.Call("Server.Search", fileName, &fileInfo)
+	err := n.node.connServer.Call("Server.Search", fileName, &fileInfo)
 	if err != nil {
 		return nil, err
 		Log.Fatal("Error ::: Connection with Server Unavailiable")
@@ -44,12 +43,6 @@ func (n *NodeAPI) Search(fileName string) ([]FileInfo, error) {
 }
 
 func (n *NodeAPI) GetFile(file FileInfo) error {
-	// for i, node := range file.Nodes {
-	// if node.Addr == n.localAddr {
-	// file.Nodes = append(file.Nodes[:i], file.Nodes[i+1:]...)
-	// }
-	// }
-
 	if len(file.Nodes) == 0 {
 		return errors.New("Nodes Unavailiable or Already Has The File")
 	}
@@ -61,19 +54,11 @@ func (n *NodeAPI) ChangeDirectory(path string) error {
 	return changeDir(path)
 }
 
-func (n *NodeAPI) GetPath() string {
-	return getDir()
-}
-
-func (n *NodeAPI) ListDirs() ([]string, error) {
-	return getDirs()
-}
-
 func (n *NodeAPI) Disconnect() error {
 	err := n.node.listener.Close()
 	if err != nil {
 		return err
 	}
 
-	return n.node.rpcConn.Close()
+	return n.node.connServer.Close()
 }

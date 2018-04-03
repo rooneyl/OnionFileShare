@@ -12,52 +12,50 @@ type NodeInfo struct {
 }
 
 type Node struct {
-	nodeInfo       NodeInfo
-	listener       net.Listener
-	rpcConn        *rpc.Client
-	privateKey     []byte
-	dataPublicKey  []byte
-	dataPrivateKey []byte
-	AESKey		   []byte
-	fileStatus     map[string][]byte
+	nodeInfo   NodeInfo
+	listener   net.Listener
+	connServer *rpc.Client
+
+	rsaPublic  []byte
+	rsaPrivate []byte
+
+	nodeAPI *NodeAPI
 }
 
-func StartConnection(localAddr string, serverAddr string) *Node {
-	Log.Println("Initiating Network Connection")
+func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Node {
+	Log.Println("Node - Initiating Network Connection")
 
 	listener, err := net.Listen("tcp", localAddr)
 	if err != nil {
-		Log.Fatalf("Error ::: Listening at [%s] Failed\n", localAddr)
+		Log.Fatalf("Node - Listening Fail [%s]\n", localAddr)
 	}
-	Log.Printf("Running Node at %s\n", localAddr)
+	Log.Printf("Node - Running Node [%s]\n", localAddr)
 
 	connServer, err := rpc.Dial("tcp", serverAddr)
 	if err != nil {
-		Log.Fatalf("Error ::: Connecting to Server Failed at [%s] Failed\n", serverAddr)
+		Log.Fatalf("Node - Connecting Server Fail [%s]\n", serverAddr)
 	}
-	Log.Printf("Connected to Server at %s\n", serverAddr)
+	Log.Printf("Node - Server Connected [s]\n", serverAddr)
 
-	pubKey, priKey := GenerateKeys()
-	dataPubKey, dataPriKey := GenerateKeys()
+	publicKey, privateKey := generateRSAKey()
 
 	node := Node{
-		nodeInfo:       NodeInfo{localAddr, pubKey},
-		listener:       listener,
-		rpcConn:        connServer,
-		privateKey:     priKey,
-		dataPublicKey:  dataPubKey,
-		dataPrivateKey: dataPriKey,
-		fileStatus:     make(map[string][]byte),
+		nodeInfo:   NodeInfo{localAddr, publicKey},
+		listener:   listener,
+		connServer: connServer,
+		rsaPublic:  publicKey,
+		rsaPrivate: privateKey,
+		nodeAPI:    nodeAPI,
 	}
 
-	go func(rpcConn *rpc.Client, nodeInfo NodeInfo) {
-		Log.Printf("Sending HeartBeat.. [Rate : %d]\n", HeartBeatRate)
+	go func(connServer *rpc.Client, nodeInfo NodeInfo) {
+		Log.Println("Node - Sending HeartBeat ...")
 		reply := false
 		for {
-			rpcConn.Call("Server.HeartBeat", nodeInfo, &reply)
+			connServer.Call("Server.HeartBeat", nodeInfo, &reply)
 			time.Sleep(HeartBeatRate * time.Millisecond)
 		}
-	}(node.rpcConn, node.nodeInfo)
+	}(node.connServer, node.nodeInfo)
 
 	rpc.Register(&node)
 	go rpc.Accept(node.listener)
@@ -66,189 +64,124 @@ func StartConnection(localAddr string, serverAddr string) *Node {
 }
 
 const (
-	ROUTE   string = "ROUTE"
-	GETFILE string = "GETFILE"
-	END     string = "END"
-	SEARCH  string = "SEARCH"
-	RESULT  string = "RESULT"
+	ROUTING = iota
+	GETFILE
+	END
 )
 
-type OpBox struct {
-	AESKey []byte
-	OperationData []byte
-}
-
-type Operation struct {
-	Op string
-	Next OpBox
-}
-
-//type Operation struct {
-//	Op   string
-//	Next []byte
-//}
-
-type RouteBox struct {
-	AESKey []byte
-	RouteData []byte
-}
-
-type Route struct {
-	Dst string
-	Next RouteBox
-}
-
-//type Route struct {
-//	Dst  string
-//	Next []byte
-//}
-
-type DataBox struct {
-	AESKey 	  []byte
-	DataData   []byte
-}
-
-type Data struct {
-	PublicKey []byte
-	FInfo     FileInfo
-	Data      Chunk
-}
-
-//type Data struct {
-//	PublicKey []byte
-//	FInfo     FileInfo
-//	Data      Chunk
-//}
-
 type Message struct {
-	Op   OpBox
-	Dst  RouteBox
-	Data DataBox
+	Routing EncryptedMessage
+	Data    EncryptedMessage
 }
 
-type OpMsg struct {
-	AESKey []byte
-	Op     []byte
+type EncryptedMessage struct {
+	ESA  []byte
+	Data []byte
 }
 
-type DstMsg struct {
-	AESKey []byte
-	Dst    []byte
+type DecryptedRouting struct {
+	Operation   int
+	Destination string
+	Next        EncryptedMessage
 }
 
-type DataMsg struct {
-	AESKey []byte
-	Data   []byte
+type DecryptedData struct {
+	RSA   []byte
+	File  Chunk
+	Finfo FileInfo
 }
 
-//type Message struct {
-//	Op   []byte
-//	Dst  []byte
-//	Data []byte
-//}
+func (n *Node) Incoming(msg Message, reply *bool) error {
+	Log.Println("Node - Received Incoming Message")
 
-func (n *Node) Incoming(arg Message, reply *bool) error {
-	Log.Println("RPC - Received RPC Message...")
-
-	var operation Operation
-	var route Route
-
-	//decrypt the Destination
-	errRoute := DecryptStruct(arg.Dst.AESKey, arg.Dst.RouteData, n.privateKey, &route)
-	//errRoute := DecryptStruct(arg.Dst, n.privateKey, &route)
-
-	//decrypt the Operation
-	errOp := DecryptStruct(arg.Op.AESKey, arg.Op.OperationData, n.privateKey, &operation)
-	//errOp := DecryptStruct(arg.Op, n.privateKey, &operation)
-
-
-	if errOp != nil || errRoute != nil {
-		Log.Println("RPC - Decrypting Message Failed")
+	var routingMessage DecryptedRouting
+	err := decrypting(msg.Routing, n.rsaPrivate, &routingMessage)
+	if err != nil {
 		return nil
 	}
 
-	Log.Printf("RPC - Message Decrypted [OP : %s] [DST : %s]\n", operation.Op, route.Dst)
-	if operation.Op != ROUTE && operation.Op != END && operation.Op != GETFILE {
-		Log.Println("RPC - Invalid OP")
-		return nil
-	}
-
-	switch operation.Op {
-
+	switch routingMessage.Operation {
 	case GETFILE:
-		var data Data
-		//decrypt the data
-		errData := DecryptStruct(arg.Data.AESKey, arg.Data.DataData, n.privateKey, &data)
-		//errData := DecryptStruct(arg.Data, n.privateKey, &data)
-		if errData != nil {
-			Log.Println("RPC - Decrypting Data Failed")
-			return nil
-		}
+		getFile(n, routingMessage, msg.Data)
 
-		chunk, err := getChunk(data.Data.Index, data.Data.Length, data.FInfo.Fname)
-		if err != nil {
-			Log.Println("RPC - GetFile: Unable to Get Chunk")
-			return nil
-		}
-
-		data.Data = chunk
-		aesKey, encData, err := EncryptStruct(data, data.PublicKey)
-		//encData, err := EncryptStruct(data, data.PublicKey)
-		if err != nil {
-			Log.Println("RPC - Encrypting Data Failed")
-			return nil
-		}
-
-		arg.Data.DataData = encData
-		arg.Data.AESKey = aesKey
-		//arg.Data = encData
-		//arg.AESKey = easKey
+	case ROUTING:
+		routing(n, routingMessage, msg.Data)
 
 	case END:
-		var data Data
-		errData := DecryptStruct(arg.Data.AESKey, arg.Data.DataData, n.dataPrivateKey, &data)
-		//errData := DecryptStruct(arg.Data, n.dataPrivateKey, &data)
-		if errData != nil {
-			Log.Println("RPC - Encrypting Data Failed")
-			return nil
-		}
-
-		errWrite := writeChunk(data.FInfo, data.Data)
-		if errWrite != nil {
-			Log.Println("FileManager - Writing Chunk Failed")
-			return nil
-		}
-
-		n.fileStatus[data.FInfo.Fname][data.Data.Index] = 1
-
-		return nil
-	default:
-
-	}
-	msg := Message{operation.Next, route.Next, arg.Data}
-	//msg := Message{operation.Next, route.Next, arg.Data}
-	rpcConn, err := rpc.Dial("tcp", route.Dst)
-	defer rpcConn.Close()
-	if err != nil {
-		Log.Println("RPC - Dial Failed")
-		return nil
-	}
-
-	err = rpcConn.Call("Node.Incoming", msg, &reply)
-	if err != nil {
-		Log.Println("RPC - Sending Message to Next Route Failed")
-		return nil
+		end(n, msg.Data)
 	}
 
 	return nil
 }
 
-func (n *Node) Search(fileName string, reply *FileInfo) error {
-	Log.Printf("RPC - Search...[%s]\n", fileName)
-	fileInfo, err := searchFile(fileName)
+func getFile(node *Node, routing DecryptedRouting, data EncryptedMessage) {
+	Log.Println("Node - Processing GetFile")
+
+	var dataMessage DecryptedData
+	err := decrypting(data, node.rsaPrivate, &dataMessage)
 	if err != nil {
-		Log.Println(err)
+		return
 	}
-	*reply = fileInfo
-	return err
+
+	chunk, err := getChunk(dataMessage.File.Index, dataMessage.File.Length, dataMessage.Finfo.Fname)
+	if err != nil {
+		Log.Println("Node - Failed [getChunk]")
+		return
+	}
+	dataMessage.File = chunk
+
+	aesKey := generateAESKey()
+	encryptedData, _ := encryptData(aesKey, dataMessage)
+	encryptedAES, _ := encryptAESKey(aesKey, dataMessage.RSA)
+	encryptedMessage := EncryptedMessage{encryptedAES, encryptedData}
+
+	sendMessage(routing.Destination, routing.Next, encryptedMessage)
+}
+
+func routing(node *Node, routing DecryptedRouting, data EncryptedMessage) {
+	Log.Println("Node - Processing Routing")
+	sendMessage(routing.Destination, routing.Next, data)
+}
+
+func end(node *Node, data EncryptedMessage) {
+	Log.Println("Node - Processing END")
+
+	var dataMessage DecryptedData
+	err := decrypting(data, node.rsaPrivate, &dataMessage)
+	if err != nil {
+		return
+	}
+
+	err = writeChunk(dataMessage.Finfo, dataMessage.File)
+	if err != nil {
+		Log.Println("Node - Failed [writeChunk]")
+		return
+	}
+
+	node.nodeAPI.downloader.requestChunk(dataMessage.File.Index)
+}
+
+func decrypting(encryptedMessage EncryptedMessage, rsaPrivate []byte, v interface{}) error {
+	aesKey, err := decryptAESKey(encryptedMessage.ESA, rsaPrivate)
+	if err != nil {
+		Log.Println("Node - Decrypting AES Failed")
+		return err
+	}
+
+	err = decryptData(aesKey, encryptedMessage.Data, v)
+	if err != nil {
+		Log.Println("Node - Decrypting Data Failed")
+		return err
+	}
+
+	return nil
+}
+
+func sendMessage(dst string, routing EncryptedMessage, data EncryptedMessage) {
+	Log.Println("Node - Sending Message to Next Node")
+	conn, _ := rpc.Dial("tcp", dst)
+	defer conn.Close()
+
+	reply := false
+	conn.Call("Node.Incoming", Message{routing, data}, &reply)
 }

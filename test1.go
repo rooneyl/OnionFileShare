@@ -19,7 +19,7 @@ func main() {
 		fmt.Printf("-> %s\n", err)
 	}
 
-	fileInfo := client.Search("file1.zip")
+	fileInfo, _ := client.Search("file1.zip")
 	for _, s := range fileInfo {
 		fmt.Printf("FileName - [%s] , FileSize - [%d]\n", s.Fname, s.Size)
 		fmt.Printf("Hash - [%s] , NumNodes - [%d]\n", s.Hash, len(s.Nodes))
