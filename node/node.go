@@ -22,6 +22,8 @@ type Node struct {
 	nodeAPI *NodeAPI
 }
 
+var servers = []string{}
+
 func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Node {
 	Log.Println("Node - Initiating Network Connection")
 
@@ -47,6 +49,7 @@ func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Nod
 		rsaPrivate: privateKey,
 		nodeAPI:    nodeAPI,
 	}
+	node.connServer.Call("Server.GetServers", "", &servers)
 
 	go func(connServer *rpc.Client, nodeInfo NodeInfo) {
 		reply := false
