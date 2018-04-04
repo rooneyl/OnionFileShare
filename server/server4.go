@@ -107,7 +107,6 @@ func main() {
 			}
 		}
 	}
-	fmt.Println()
 }
 
 func (s *Server) HeartBeat(nodeInfo NodeInfo, reply *bool) error {
@@ -162,7 +161,7 @@ func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
 func Sync(s Server) {
 	for {
 		SyncServers(s)
-		time.Sleep(10 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 }
 
@@ -199,7 +198,6 @@ func SyncServers(s Server) {
 			fmt.Println(s.Nodes)
 		}
 	}
-
 	err = f.Close()
 	checkError(err)
 

@@ -72,7 +72,6 @@ func main() {
 		// Create the file and add credentials
 
 		f, err := os.Create(filepath.Join(localPath, "serverList.txt"))
-		//f.Truncate(filesize)
 		checkError(err)
 		f.WriteString(os.Args[1] + "\n")
 		f.Close()
@@ -107,7 +106,6 @@ func main() {
 			}
 		}
 	}
-	fmt.Println()
 }
 
 func (s *Server) HeartBeat(nodeInfo NodeInfo, reply *bool) error {
@@ -162,7 +160,7 @@ func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
 func Sync(s Server) {
 	for {
 		SyncServers(s)
-		time.Sleep(10 * time.Second)
+		time.Sleep(2 * time.Second)
 	}
 }
 
@@ -190,7 +188,6 @@ func SyncServers(s Server) {
 				if _, exist := s.Nodes[nodeInfo.Addr]; exist {
 					// node already exists in s.Nodes, do nothing
 				} else {
-					//TODO INITIALIZE TTL PROPERLY
 					s.Nodes[nodeInfo.Addr] = NodeStatus{Node: nodeInfo, time: time.Now()}
 				}
 			}
