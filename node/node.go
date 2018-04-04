@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"net"
 	"net/rpc"
 	"time"
@@ -19,7 +20,9 @@ type Node struct {
 	rsaPublic  []byte
 	rsaPrivate []byte
 
-	nodeAPI *NodeAPI
+	nodeAPI   *NodeAPI
+	servers   []string
+	servernum int
 }
 
 var servers = []string{}
@@ -48,13 +51,22 @@ func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Nod
 		rsaPublic:  publicKey,
 		rsaPrivate: privateKey,
 		nodeAPI:    nodeAPI,
+		servers:    []string{},
+		servernum:  0,
 	}
 	node.connServer.Call("Server.GetServers", "", &servers)
+	node.servers = servers
 
 	go func(connServer *rpc.Client, nodeInfo NodeInfo) {
 		reply := false
 		for {
-			connServer.Call("Server.HeartBeat", nodeInfo, &reply)
+			err = connServer.Call("Server.HeartBeat", nodeInfo, &reply)
+			if err != nil {
+				node.ReconnectS()
+				if err != nil {
+					fmt.Println(err)
+				}
+			}
 			time.Sleep(HeartBeatRate * time.Millisecond)
 		}
 	}(node.connServer, node.nodeInfo)
@@ -91,6 +103,20 @@ type DecryptedData struct {
 	RSA   []byte
 	File  Chunk
 	Finfo FileInfo
+}
+
+func (n *Node) ReconnectS() (err error) {
+	for n.servernum < len(servers) {
+		n.connServer, err = rpc.Dial("tcp", servers[n.servernum])
+		if err == nil {
+			break
+		}
+		n.servernum++
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (n *Node) Incoming(msg Message, reply *bool) error {
