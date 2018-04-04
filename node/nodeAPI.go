@@ -34,6 +34,12 @@ func (n *NodeAPI) Search(fileName string) ([]FileInfo, error) {
 	var fileInfo []FileInfo
 	err := n.node.connServer.Call("Server.Search", fileName, &fileInfo)
 	if err != nil {
+		n.node.ReconnectS()
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	if err != nil {
 		return nil, err
 		Log.Fatal("Error ::: Connection with Server Unavailiable")
 	}
