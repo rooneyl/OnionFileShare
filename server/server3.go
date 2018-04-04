@@ -157,6 +157,16 @@ func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
 	return nil
 }
 
+func (s *Server) GetServers(nonce string, servers *[]string) error {
+	*servers = []string{}
+	f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_RDONLY, 0644)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		*servers = append(*servers, scanner.Text())
+	}
+	return err
+}
+
 func Sync(s Server) {
 	for {
 		SyncServers(s)
