@@ -53,12 +53,17 @@ func (n *NodeAPI) ChangeDirectory(path string) error {
 }
 
 func (n *NodeAPI) GetPath() string {
-	return getDir()
+	return getPath()
 
 }
 
 func (n *NodeAPI) ListDirs() ([]string, error) {
-	return getDirs()
+	return listDirs()
+
+}
+
+func (n *NodeAPI) ListFiles() ([]string, error) {
+	return listFiles()
 
 }
 

@@ -151,11 +151,11 @@ func changeDir(path string) error {
 	return nil
 }
 
-func getDir() string {
+func getPath() string {
 	return Path
 }
 
-func getDirs() ([]string, error) {
+func listDirs() ([]string, error) {
 	var dirs []string
 	files, err := ioutil.ReadDir(Path)
 	if err != nil {
@@ -169,4 +169,20 @@ func getDirs() ([]string, error) {
 		}
 	}
 	return dirs, err
+}
+
+func listFiles() ([]string, error) {
+	var fnames []string
+	files, err := ioutil.ReadDir(Path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		//fmt.Println(file.Name())
+		if !file.IsDir() {
+			fnames = append(fnames, file.Name())
+		}
+	}
+	return fnames, err
 }

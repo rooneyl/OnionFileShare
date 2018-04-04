@@ -30,15 +30,18 @@ func main() {
 	for {
 		fmt.Println("::: Menu :::")
 		fmt.Println("[1] Search/Download File")
-		fmt.Println("[2] Change Directory")
-		fmt.Println("[3] Exit")
+		fmt.Println("[2] My Files")
+		fmt.Println("[3] Change Directory")
+		fmt.Println("[4] Exit")
 
 		switch getInput() {
 		case "1":
 			search()
 		case "2":
-			changeDir()
+			displayFiles()
 		case "3":
+			changeDir()
+		case "4":
 			client.Disconnect()
 			return
 
@@ -56,7 +59,7 @@ func getInput() string {
 }
 
 func search() {
-	fmt.Println("Enter Name of File or Press '0' to Return")
+	fmt.Println("Enter Name of File or '0' to Return")
 	fname := getInput()
 	if fname == "0" {
 		return
@@ -65,7 +68,7 @@ func search() {
 	//fmt.Printf("%#v\n", client)
 	fileInfos, err := client.Search(fname)
 	if err != nil {
-		fmt.Println("search error: ", err)
+		fmt.Println("Search Error: ", err)
 		return
 	}
 	if fileInfos == nil || len(fileInfos) == 0 {
@@ -73,7 +76,7 @@ func search() {
 		return
 	}
 
-	fmt.Println("Select File to Download or Press '0' to Return")
+	fmt.Println("Select File to Download or '0' to Return")
 	for i, file := range fileInfos {
 		fmt.Printf("[%d] File [%s] - Size [%d]\n", i+1, file.Fname, file.Size)
 	}
@@ -94,30 +97,32 @@ func search() {
 			continue
 		}
 
-		//TODO
 		err = client.GetFile(fileInfos[selection-1])
 		if err != nil {
 			fmt.Println("GetFile error: ", err)
 		}
-		fmt.Printf("File [%s] downloaded into current directory: [%s]\n", fname, client.GetPath())
+		fmt.Printf("File [%s] downloaded into current path: [%s]\n", fname, client.GetPath())
+		return
 	}
 }
 
 func changeDir() {
-	fmt.Printf("Current Path: [%s]\n", client.GetPath())
+	fmt.Println()
+	fmt.Printf("Current Path [%s]:\n", client.GetPath())
 	dirs, err := client.ListDirs()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	for _, dir := range dirs {
-		fmt.Println("> ", dir)
+		fmt.Println(" - ", dir)
 	}
 
-	fmt.Println("Enter Desired Path or Press '0' to Return")
+	fmt.Println("Enter Desired Path or '0' to Return")
 	for {
 		path := getInput()
 		if path == "0" {
+			fmt.Println()
 			return
 		}
 
@@ -127,7 +132,42 @@ func changeDir() {
 			continue
 		} else {
 			fmt.Printf("Path Change Successful. New Path : [%s]\n", path)
+			fmt.Println()
 			return
+		}
+	}
+}
+
+func displayFiles() {
+	fmt.Println()
+	fmt.Printf("Current Path [%s]:\n", client.GetPath())
+	fnames, err := client.ListFiles()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for _, f := range fnames {
+		fmt.Println(" - ", f)
+	}
+
+	fmt.Println("Enter '1' to Change Directory or '0' to Return")
+	for {
+		input := getInput()
+		if input == "0" {
+			return
+		}
+		if input == "1" {
+			changeDir()
+			fmt.Printf("Current Path [%s]:\n", client.GetPath())
+			fnames, err := client.ListFiles()
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			for _, f := range fnames {
+				fmt.Println(" - ", f)
+			}
+			fmt.Println("Enter '1' to Change Directory or '0' to Return")
 		}
 	}
 }
