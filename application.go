@@ -72,7 +72,7 @@ func search() {
 		return
 	}
 	if fileInfos == nil || len(fileInfos) == 0 {
-		fmt.Printf("File [%s] Does Not Exists on the Network\n", fname)
+		fmt.Printf("File [%s] Does Not Exist on the Network\n", fname)
 		return
 	}
 
@@ -99,7 +99,22 @@ func search() {
 
 		err = client.GetFile(fileInfos[selection-1])
 		if err != nil {
-			fmt.Println("GetFile error: ", err)
+			fmt.Println("Could not download this file: ", err)
+			fmt.Println("Refreshing File List")
+			fileInfos, err = client.Search(fname)
+			if err != nil {
+				fmt.Println("Search Error: ", err)
+				return
+			}
+			if fileInfos == nil || len(fileInfos) == 0 {
+				fmt.Printf("File [%s] Does Not Exist on the Network\n", fname)
+				return
+			}
+			fmt.Println("Select File to Download or '0' to Return")
+			for i, file := range fileInfos {
+				fmt.Printf("[%d] File [%s] - Size [%d]\n", i+1, file.Fname, file.Size)
+			}
+			continue
 		}
 		fmt.Printf("File [%s] downloaded into current path: [%s]\n", fname, client.GetPath())
 		return
