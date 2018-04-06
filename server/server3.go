@@ -39,7 +39,7 @@ type Server struct {
 }
 
 //var filesize = int64(340)
-var localPath = "./serverfile/"
+var localPath = "./server/serverfile/"
 
 func main() {
 	gob.Register(&FileInfo{})
