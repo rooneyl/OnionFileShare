@@ -1,7 +1,6 @@
 package node
 
 import (
-	"fmt"
 	"net"
 	"net/rpc"
 	"time"
@@ -62,9 +61,11 @@ func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Nod
 		for {
 			err = connServer.Call("Server.HeartBeat", nodeInfo, &reply)
 			if err != nil {
-				node.ReconnectS()
+				err = node.ReconnectS()
 				if err != nil {
-					fmt.Println(err)
+					//fmt.Println(err)
+					//TODO maybe a better way to cleanup and quit? For now this
+					Log.Fatal("No servers found: ", err)
 				}
 			}
 			time.Sleep(HeartBeatRate * time.Millisecond)
