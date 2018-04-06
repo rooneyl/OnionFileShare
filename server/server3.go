@@ -9,8 +9,8 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
-	"time"
 	"sync"
+	"time"
 )
 
 var mutex = &sync.Mutex{}
@@ -187,7 +187,7 @@ func SyncServers(s Server) {
 		if scanner.Text() != s.ServerAddr {
 			client, err := rpc.Dial("tcp", scanner.Text())
 			if err != nil {
-				fmt.Println("server at " + scanner.Text() + " is down")
+				//fmt.Println("server at " + scanner.Text() + " is down")
 				break
 			}
 
@@ -196,7 +196,6 @@ func SyncServers(s Server) {
 			if err != nil {
 				continue
 			}
-			fmt.Println(nodes)
 
 			for _, nodeInfo := range *nodes {
 				if _, exist := s.Nodes[nodeInfo.Addr]; exist {
