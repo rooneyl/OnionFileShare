@@ -1,146 +1,218 @@
 package main
 
 import (
-	//"crypto/ecdsa"
-	//"crypto/elliptic"
-	//"encoding/gob"
-	//"encoding/json"
-	//"errors"
-	//"flag"
-	//"fmt"
-	//"io/ioutil"
+	"bufio"
+	"encoding/gob"
 	"log"
-	"math/rand"
 	"net"
 	"net/rpc"
 	"os"
-	//"sort"
-	//"sync"
+	"path/filepath"
+	"sync"
 	"time"
 )
 
-var (
-	logger *log.Logger
-	//first string is pubkey, second string is ip address
-	nodeList map[string]string
-)
+var mutex = &sync.Mutex{}
+var Log *log.Logger = log.New(os.Stdout, "SERVER ::: ", log.Ltime|log.Lshortfile)
 
-type SneakyNode struct {
-	ip     string
-	pubKey string
+type NodeInfo struct {
+	Addr      string
+	PublicKey []byte
 }
+
+type NodeStatus struct {
+	Node NodeInfo
+	time time.Time
+}
+
+type FileInfo struct {
+	Fname string
+	Size  int
+	Hash  string
+	Nodes []NodeInfo
+}
+
+type Server struct {
+	ServerAddr string
+	Nodes      map[string]NodeStatus
+}
+
+//var filesize = int64(340)
+var localPath = "./server/serverfile/"
 
 func main() {
-	args := os.Args[1:]
+	gob.Register(&FileInfo{})
+	gob.Register(&NodeInfo{})
+	var server Server
 
-	if len(args) != 1 {
-		log.Println("Usage: go run server.go ip:port")
-		return
+	if len(os.Args) != 2 {
+		Log.Fatal("Usage - go run server.go ip:port")
 	}
 
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	nodeList = make(map[string]string)
-
-	sneakyNode := new(SneakyNode)
-	rpc.Register(sneakyNode)
-
-	// Listen for new connection
-	ln, err := net.ListenTCP("tcp", getAddr(":8080"))
-	checkError(err)
-	// Accept incoming connection
-	rpc.Accept(ln)
-
-	return
-}
-
-func (s *SneakyNode) Hello(sn *SneakyNode, reply *string) error {
-	register(sn)
-
-	// run goroutine in infinite loop
-	go HeartBeat(sn)
-
-	*reply = "registered"
-	return nil
-}
-
-func (s *SneakyNode) GetRoute(sn *SneakyNode, reply *[]string) error {
-	var nodes []string
-	i := 0
-	for _, v := range nodeList {
-		nodes[i] = v
-		i++
-	}
-	var route []string
-	for i := 0; i < 3; i++ {
-		route[i] = nodes[rand.Intn(len(nodes))]
-	}
-	*reply = route
-	return nil
-}
-
-func (s *SneakyNode) GetNodes(sn *string, reply *[]string) error {
-	var nodes []string
-	i := 0
-	for _, v := range nodeList {
-		nodes[i] = v
-		i++
-	}
-	*reply = nodes
-	return nil
-}
-
-func (s *SneakyNode) Search(filename string, reply *SneakyNode) error {
-	for _, v := range nodeList {
-		c, err := rpc.Dial("tcp", v)
+	// create serverlist and write credentials
+	if _, err := os.Stat(filepath.Join(localPath, "serverList.txt")); err == nil {
+		// file exists, add credentials
+		err = nil
+		f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_APPEND|os.O_RDWR, 0644)
+		scanner := bufio.NewScanner(f)
+		registered := false
+		for scanner.Scan() {
+			if (scanner.Text()) == os.Args[1] {
+				registered = true
+			}
+		}
 		checkError(err)
-		err = c.Call("SneakyNode.Exists", filename, &reply)
-	}
-	return nil
-}
+		if !registered {
+			_, err = f.WriteString(os.Args[1] + "\n")
+		}
+		checkError(err)
+		err = f.Close()
 
-func register(sn *SneakyNode) {
-	if nodeExists(sn.pubKey) {
-		return
+		checkError(err)
 	} else {
-		nodeList[sn.pubKey] = sn.ip
-		return
-	}
-}
+		// Create the file and add credentials
 
-func nodeExists(pubkey string) bool {
-	for k, _ := range nodeList {
-		if k == pubkey {
-			return true
+		f, err := os.Create(filepath.Join(localPath, "serverList.txt"))
+		checkError(err)
+		f.WriteString(os.Args[1] + "\n")
+		f.Close()
+	}
+
+	server.ServerAddr = os.Args[1]
+	server.Nodes = make(map[string]NodeStatus)
+
+	listener, err := net.Listen("tcp", server.ServerAddr)
+	if err != nil {
+		Log.Fatal("Error - Unable to Establish Connection")
+	}
+
+	err = rpc.Register(&server)
+	if err != nil {
+		Log.Fatal("Error - RPC Register Failed")
+	}
+
+	Log.Printf("Running at [%s]", server.ServerAddr)
+	go rpc.Accept(listener)
+	go Sync(server)
+
+	for {
+		time.Sleep(time.Second * 5)
+		currentTime := time.Now()
+		// fmt.Println("Availiable Node ->")
+		for addr, node := range server.Nodes {
+			if currentTime.After(node.time.Add(time.Second * 5)) {
+				delete(server.Nodes, addr)
+			} else {
+				// fmt.Printf("Node [%s] - time [%s]\n", node.Node.Addr, node.time.String())
+			}
 		}
 	}
-	return false
 }
 
-func HeartBeat(sn *SneakyNode) {
-	for {
-		_, err := rpc.Dial("tcp", sn.ip)
+func (s *Server) HeartBeat(nodeInfo NodeInfo, reply *bool) error {
+	mutex.Lock()
+	s.Nodes[nodeInfo.Addr] = NodeStatus{nodeInfo, time.Now()}
+	mutex.Unlock()
+	return nil
+}
+
+func (s *Server) Search(fileName string, reply *[]FileInfo) error {
+	Log.Printf("RPC - Search...[%s]\n", fileName)
+	fileSource := make(map[string]*FileInfo)
+	for addr, nodeStatus := range s.Nodes {
+		client, err := rpc.Dial("tcp", addr)
+		defer client.Close()
 		if err != nil {
-			for k, _ := range nodeList {
-				if k == sn.pubKey {
-					delete(nodeList, k)
+			continue
+		}
+
+		var fileInfo FileInfo
+		err = client.Call("Node.Search", fileName, &fileInfo)
+		if err != nil {
+			continue
+		}
+
+		if fileSource[fileInfo.Hash] == nil {
+			fileInfo.Nodes = append(fileInfo.Nodes, nodeStatus.Node)
+			fileSource[fileInfo.Hash] = &fileInfo
+		} else {
+			appendNode := append(fileSource[fileInfo.Hash].Nodes, nodeStatus.Node)
+			fileSource[fileInfo.Hash].Nodes = appendNode
+		}
+	}
+
+	for _, fileInfo := range fileSource {
+		*reply = append(*reply, *fileInfo)
+	}
+
+	return nil
+}
+
+func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
+	for _, node := range s.Nodes {
+		*nodes = append(*nodes, node.Node)
+		numNode--
+		if numNode == 0 {
+			break
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) GetServers(nonce string, servers *[]string) error {
+	*servers = []string{}
+	f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_RDONLY, 0644)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		*servers = append(*servers, scanner.Text())
+	}
+	return err
+}
+
+func Sync(s Server) {
+	for {
+		SyncServers(s)
+		time.Sleep(2 * time.Second)
+	}
+}
+
+func SyncServers(s Server) {
+
+	f, err := os.OpenFile(filepath.Join(localPath, "serverList.txt"), os.O_RDONLY, 0644)
+	scanner := bufio.NewScanner(f)
+
+	for scanner.Scan() {
+		if scanner.Text() != s.ServerAddr {
+			client, err := rpc.Dial("tcp", scanner.Text())
+			if err != nil {
+				//fmt.Println("server at " + scanner.Text() + " is down")
+				break
+			}
+
+			var nodes *[]NodeInfo
+			err = client.Call("Server.GetNode", 1000, &nodes)
+			if err != nil {
+				continue
+			}
+
+			for _, nodeInfo := range *nodes {
+				if _, exist := s.Nodes[nodeInfo.Addr]; exist {
+					// node already exists in s.Nodes, do nothing
+				} else {
+					s.Nodes[nodeInfo.Addr] = NodeStatus{Node: nodeInfo, time: time.Now()}
 				}
 			}
-			return
 		}
-
-		time.Sleep(8 * time.Second)
 	}
-}
 
-func checkError(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func getAddr(ip string) *net.TCPAddr {
-	addr, err := net.ResolveTCPAddr("tcp", ip)
+	err = f.Close()
 	checkError(err)
-	return addr
+
+}
+
+func checkError(e error) {
+	if e != nil {
+		log.Fatal(e)
+	}
 }
