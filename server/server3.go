@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/gob"
-	"fmt"
 	"log"
 	"net"
 	"net/rpc"
@@ -214,6 +213,6 @@ func SyncServers(s Server) {
 
 func checkError(e error) {
 	if e != nil {
-		fmt.Println(e)
+		log.Fatal(e)
 	}
 }
