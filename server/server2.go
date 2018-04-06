@@ -8,8 +8,10 @@ import (
 	"net/rpc"
 	"os"
 	"time"
+	"sync"
 )
 
+var mutex = &sync.Mutex{}
 var Log *log.Logger = log.New(os.Stdout, "SERVER ::: ", log.Ltime|log.Lshortfile)
 
 type NodeInfo struct {
@@ -33,6 +35,16 @@ type Server struct {
 	ServerAddr string
 	Nodes      map[string]NodeStatus
 }
+
+//type Server struct {
+//	ServerAddr string
+//	Nodes      ConcurrentMapItem
+//}
+//
+//type ConcurrentMapItem struct {
+//	sync.RWMutex
+//	Nodes      map[string]NodeStatus
+//}
 
 func main() {
 	gob.Register(&FileInfo{})
@@ -75,7 +87,10 @@ func main() {
 }
 
 func (s *Server) HeartBeat(nodeInfo NodeInfo, reply *bool) error {
+	mutex.Lock()
 	s.Nodes[nodeInfo.Addr] = NodeStatus{nodeInfo, time.Now()}
+	mutex.Unlock()
+
 	return nil
 }
 

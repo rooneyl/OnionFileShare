@@ -10,8 +10,10 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"sync"
 )
 
+var mutex = &sync.Mutex{}
 var Log *log.Logger = log.New(os.Stdout, "SERVER ::: ", log.Ltime|log.Lshortfile)
 
 type NodeInfo struct {
@@ -109,7 +111,9 @@ func main() {
 }
 
 func (s *Server) HeartBeat(nodeInfo NodeInfo, reply *bool) error {
+	mutex.Lock()
 	s.Nodes[nodeInfo.Addr] = NodeStatus{nodeInfo, time.Now()}
+	mutex.Unlock()
 	return nil
 }
 
