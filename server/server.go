@@ -71,7 +71,6 @@ func main() {
 		checkError(err)
 	} else {
 		// Create the file and add credentials
-
 		f, err := os.Create(filepath.Join(localPath, "serverList.txt"))
 		checkError(err)
 		f.WriteString(os.Args[1] + "\n")
@@ -98,14 +97,14 @@ func main() {
 	for {
 		time.Sleep(time.Second * 5)
 		currentTime := time.Now()
-		// fmt.Println("Availiable Node ->")
+		mutex.Lock()
 		for addr, node := range server.Nodes {
 			if currentTime.After(node.time.Add(time.Second * 5)) {
 				delete(server.Nodes, addr)
-			} else {
-				// fmt.Printf("Node [%s] - time [%s]\n", node.Node.Addr, node.time.String())
 			}
 		}
+		Log.Printf("Number of Node Online [%d]", len(server.Nodes))
+		mutex.Unlock()
 	}
 }
 
@@ -119,6 +118,7 @@ func (s *Server) HeartBeat(nodeInfo NodeInfo, reply *bool) error {
 func (s *Server) Search(fileName string, reply *[]FileInfo) error {
 	Log.Printf("RPC - Search...[%s]\n", fileName)
 	fileSource := make(map[string]*FileInfo)
+	mutex.Lock()
 	for addr, nodeStatus := range s.Nodes {
 		client, err := rpc.Dial("tcp", addr)
 		defer client.Close()
@@ -140,6 +140,7 @@ func (s *Server) Search(fileName string, reply *[]FileInfo) error {
 			fileSource[fileInfo.Hash].Nodes = appendNode
 		}
 	}
+	mutex.Unlock()
 
 	for _, fileInfo := range fileSource {
 		*reply = append(*reply, *fileInfo)
@@ -149,6 +150,7 @@ func (s *Server) Search(fileName string, reply *[]FileInfo) error {
 }
 
 func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
+	mutex.Lock()
 	for _, node := range s.Nodes {
 		*nodes = append(*nodes, node.Node)
 		numNode--
@@ -156,6 +158,7 @@ func (s *Server) GetNode(numNode int, nodes *[]NodeInfo) error {
 			break
 		}
 	}
+	mutex.Unlock()
 
 	return nil
 }

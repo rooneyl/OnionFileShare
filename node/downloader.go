@@ -51,7 +51,6 @@ func (d *Downloader) getFile(file FileInfo) error {
 
 func (d *Downloader) requestChunk(index int) error {
 	selectedNode := d.fileNode[rand.Int()%len(d.fileNode)]
-	Log.Printf("Downloader - Requesting Chunk[%d] from [%s]\n", index, selectedNode.Addr)
 
 	// Data
 	dataMessage := DecryptedData{
@@ -77,6 +76,7 @@ func (d *Downloader) requestChunk(index int) error {
 
 	reply := false
 	conn.Call("Node.Incoming", message, &reply)
+	Log.Printf("Downloader - Requesting Chunk[%d] from [%s] init routing [%s]\n", index, selectedNode.Addr, routingInfo.Addr)
 	return nil
 }
 
@@ -184,6 +184,12 @@ func (d *Downloader) updateRandomNode() error {
 	err := d.nodeAPI.node.connServer.Call("Server.GetNode", MinNumRoute*10, &d.randomNode)
 	if err != nil {
 		return err
+	}
+
+	for i, node := range d.randomNode {
+		if node.Addr == d.nodeAPI.localAddr {
+			d.randomNode = append(d.randomNode[:i], d.randomNode[i+1:]...)
+		}
 	}
 
 	Log.Printf("Downloader - Updated RandomNodes, numNodes = [%d]", len(d.randomNode))

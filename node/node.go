@@ -57,21 +57,19 @@ func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Nod
 	node.connServer.Call("Server.GetServers", "", &servers)
 	node.servers = servers
 
-	go func(connServer *rpc.Client, nodeInfo NodeInfo) {
+	go func(connServer *rpc.Client, nodeInfo NodeInfo, n *Node) {
 		reply := false
 		for {
 			err = connServer.Call("Server.HeartBeat", nodeInfo, &reply)
 			if err != nil {
-				fmt.Println(err)
-				err = node.ReconnectS()
+				err = reconnectServer(n)
 				if err != nil {
-					//TODO maybe a better way to cleanup and quit? For now this
 					Log.Fatal("No servers found: ", err)
 				}
 			}
 			time.Sleep(HeartBeatRate * time.Millisecond)
 		}
-	}(node.connServer, node.nodeInfo)
+	}(node.connServer, node.nodeInfo, &node)
 
 	rpc.Register(&node)
 	go rpc.Accept(node.listener)
@@ -105,20 +103,6 @@ type DecryptedData struct {
 	RSA   []byte
 	File  Chunk
 	Finfo FileInfo
-}
-
-func (n *Node) ReconnectS() (err error) {
-	for n.servernum < len(servers) {
-		n.connServer, err = rpc.Dial("tcp", servers[n.servernum])
-		if err == nil {
-			break
-		}
-		n.servernum++
-	}
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (n *Node) Incoming(msg Message, reply *bool) error {
@@ -173,10 +157,12 @@ func getFile(node *Node, routing DecryptedRouting, data EncryptedMessage) {
 	encryptedMessage := EncryptedMessage{encryptedAES, encryptedData}
 
 	sendMessage(routing.Destination, routing.Next, encryptedMessage)
+	fmt.Printf("GetData - Node [%s]  -->  [%s] / Chunk No.%d\n", node.nodeAPI.localAddr, routing.Destination, dataMessage.File.Index)
 }
 
 func routing(node *Node, routing DecryptedRouting, data EncryptedMessage) {
 	Log.Printf("Node - Processing Routing to [%s]", routing.Destination)
+	fmt.Printf("Routing - Node [%s]  -->  [%s]\n", node.nodeAPI.localAddr, routing.Destination)
 	sendMessage(routing.Destination, routing.Next, data)
 }
 
@@ -226,4 +212,18 @@ func sendMessage(dst string, routing EncryptedMessage, data EncryptedMessage) {
 
 	reply := false
 	conn.Call("Node.Incoming", Message{routing, data}, &reply)
+}
+
+func reconnectServer(n *Node) (err error) {
+	for n.servernum < len(servers) {
+		n.connServer, err = rpc.Dial("tcp", servers[n.servernum])
+		if err == nil {
+			break
+		}
+		n.servernum++
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
