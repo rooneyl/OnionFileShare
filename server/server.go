@@ -96,7 +96,7 @@ func main() {
 
 	online := 0
 	for {
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Second * 2)
 		currentTime := time.Now()
 		mutex.Lock()
 		for addr, node := range server.Nodes {
