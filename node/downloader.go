@@ -148,6 +148,7 @@ func (d *Downloader) downloadStatus() error {
 			}
 		}
 		d.mutex.Unlock()
+		fmt.Printf("File [%s] downloaded... [%d/%d]\n", d.file.Fname, counter, len(d.fileStatus))
 
 		if complete {
 			return nil
@@ -168,7 +169,6 @@ func (d *Downloader) downloadStatus() error {
 				d.requestChunk(i)
 			}
 		}
-		fmt.Printf("File [%s] downloaded... [%d/%d]\n", d.file.Fname, counter, len(d.fileStatus))
 	}
 
 	return errors.New("DownLoader - Failed to Download File [downloadStatus]")

@@ -18,7 +18,7 @@ func main() {
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	portNumber := r.Int()%40000 + 10000
-	_, err := node.Run(os.Args[1]+":"+strconv.Itoa(portNumber), os.Args[2], false)
+	_, err := node.Run(os.Args[1]+":"+strconv.Itoa(portNumber), os.Args[2], true)
 	if err != nil {
 		fmt.Println(err)
 	}

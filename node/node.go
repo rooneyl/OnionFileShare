@@ -188,7 +188,7 @@ func end(node *Node, data EncryptedMessage) {
 func decrypting(encryptedMessage EncryptedMessage, rsaPrivate []byte, v interface{}) error {
 	aesKey, err := decryptAESKey(encryptedMessage.ESA, rsaPrivate)
 	if err != nil {
-		Log.Fatal("Node - Decrypting AES Failed")
+		Log.Println("Node - Decrypting AES Failed")
 		return err
 	}
 
