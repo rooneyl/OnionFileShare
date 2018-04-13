@@ -18,9 +18,12 @@ func main() {
 		return
 	}
 
-	nodeapi, err := node.Run(os.Args[1], os.Args[2], true)
+	nodeapi, err := node.Run(os.Args[1], os.Args[2], false)
 	client = nodeapi
-	client.ChangeDirectory("./AppData")
+	err = client.ChangeDirectory("./appdata")
+	if err != nil {
+		fmt.Println(err)
+	}
 	scanner = bufio.NewScanner(os.Stdin)
 	if err != nil {
 		fmt.Printf("Error : Unable to Run Node")
