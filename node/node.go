@@ -36,12 +36,13 @@ func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Nod
 	addrSt := strings.Split(add, ":")
 	port := addrSt[len(addrSt)-1]
 	localAddr = localAddr + ":" + port
+	nodeAPI.localAddr = localAddr
 
 	if err != nil {
 		Log.Fatalf("Node - Listening Fail [%s]\n", localAddr)
 	}
 	Log.Printf("Node - Running Node [%s]\n", localAddr)
-fmt.Printf("Node - [%s]\n", localAddr)
+	fmt.Printf("Node - [%s]\n", localAddr)
 
 	connServer, err := rpc.Dial("tcp", serverAddr)
 	if err != nil {
