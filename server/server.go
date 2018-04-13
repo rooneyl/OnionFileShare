@@ -94,6 +94,7 @@ func main() {
 	go rpc.Accept(listener)
 	go Sync(server)
 
+	online := 0
 	for {
 		time.Sleep(time.Second * 5)
 		currentTime := time.Now()
@@ -103,7 +104,10 @@ func main() {
 				delete(server.Nodes, addr)
 			}
 		}
-		Log.Printf("Number of Node Online [%d]", len(server.Nodes))
+		if len(server.Nodes) != online {
+			online = len(server.Nodes)
+			Log.Printf("Number of Node Online [%d]", online)
+		}
 		mutex.Unlock()
 	}
 }
