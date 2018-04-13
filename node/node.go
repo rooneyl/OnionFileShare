@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/rpc"
+	"strings"
 	"time"
 )
 
@@ -30,11 +31,17 @@ var servers = []string{}
 func StartConnection(localAddr string, serverAddr string, nodeAPI *NodeAPI) *Node {
 	Log.Println("Node - Initiating Network Connection")
 
-	listener, err := net.Listen("tcp", localAddr)
+	listener, err := net.ListenTCP("tcp", nil)
+	add := listener.Addr().String()
+	addrSt := strings.Split(add, ":")
+	port := addrSt[len(addrSt)-1]
+	localAddr = localAddr + ":" + port
+
 	if err != nil {
 		Log.Fatalf("Node - Listening Fail [%s]\n", localAddr)
 	}
 	Log.Printf("Node - Running Node [%s]\n", localAddr)
+fmt.Printf("Node - [%s]\n", localAddr)
 
 	connServer, err := rpc.Dial("tcp", serverAddr)
 	if err != nil {

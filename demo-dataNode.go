@@ -3,9 +3,7 @@ package main
 import (
 	"./node"
 	"fmt"
-	"math/rand"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -16,14 +14,10 @@ func main() {
 		return
 	}
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	portNumber := r.Int()%40000 + 10000
-	_, err := node.Run(os.Args[1]+":"+strconv.Itoa(portNumber), os.Args[2], true)
+	_, err := node.Run(os.Args[1], os.Args[2], false)
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	fmt.Printf("Node - [%s]\n", os.Args[1]+":"+strconv.Itoa(portNumber))
 
 	for {
 		time.Sleep(time.Minute)

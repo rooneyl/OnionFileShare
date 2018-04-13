@@ -8,6 +8,7 @@ import (
 	"net/rpc"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -80,7 +81,11 @@ func main() {
 	server.ServerAddr = os.Args[1]
 	server.Nodes = make(map[string]NodeStatus)
 
-	listener, err := net.Listen("tcp", server.ServerAddr)
+	listener, err := net.ListenTCP("tcp", nil)
+	add := listener.Addr().String()
+	addrSt := strings.Split(add, ":")
+	port := addrSt[len(addrSt)-1]
+	// listener, err := net.Listen("tcp", server.ServerAddr)
 	if err != nil {
 		Log.Fatal("Error - Unable to Establish Connection")
 	}
@@ -90,7 +95,7 @@ func main() {
 		Log.Fatal("Error - RPC Register Failed")
 	}
 
-	Log.Printf("Running at [%s]", server.ServerAddr)
+	Log.Printf("Running at [%s]", server.ServerAddr+":"+port)
 	go rpc.Accept(listener)
 	go Sync(server)
 
