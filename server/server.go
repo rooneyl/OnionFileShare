@@ -85,6 +85,7 @@ func main() {
 	add := listener.Addr().String()
 	addrSt := strings.Split(add, ":")
 	port := addrSt[len(addrSt)-1]
+	server.ServerAddr = server.ServerAddr + ":" + port
 	// listener, err := net.Listen("tcp", server.ServerAddr)
 	if err != nil {
 		Log.Fatal("Error - Unable to Establish Connection")
